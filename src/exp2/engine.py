@@ -15,6 +15,8 @@ Swap is charged per rollover held (broker midnight = 17:00 New York), x3 on Wedn
 Every decision is logged with the time it was made and the newest data it saw (spec §9).
 """
 from dataclasses import dataclass, field
+from datetime import datetime, time, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 import numpy as np
 import pandas as pd
@@ -23,6 +25,7 @@ from src.config import commission_usd
 from src.timeutils import LONDON, NEW_YORK, utc_to_server
 
 NS_MIN = 60 * 10**9
+NY_TZ = ZoneInfo(NEW_YORK)
 LONG_BREAK_NS = 120 * NS_MIN
 
 
@@ -89,6 +92,12 @@ def friday_cutoff(t_ns):
     """No new entries from Friday 16:00 London."""
     d = pd.Timestamp(int(t_ns), tz="UTC").tz_convert(LONDON)
     return d.dayofweek == 4 and d.hour * 60 + d.minute >= 16 * 60
+
+
+def server_date(t_ns):
+    """Broker server calendar date (New York clock + 7 h) of a UTC time."""
+    ny = datetime.fromtimestamp(t_ns / 1e9, tz=timezone.utc).astimezone(NY_TZ)
+    return (ny.replace(tzinfo=None) + timedelta(hours=7)).date()
 
 
 class Engine:
@@ -190,24 +199,19 @@ class Engine:
 
     def swap_for(self, pos, exit_ns):
         """Swap for every broker rollover (server midnight = 17:00 New York) crossed while open."""
-        first = utc_to_server(pd.Series([pd.Timestamp(pos.entry_ns, tz="UTC")])).iloc[0].normalize()
-        last = utc_to_server(pd.Series([pd.Timestamp(exit_ns, tz="UTC")])).iloc[0].normalize()
-        days, day = [], first
-        while day < last:                    # one rollover per broker day boundary crossed (none if same day)
-            days.append(day)
-            day += pd.Timedelta(days=1)
-        if not days:
+        first, last = server_date(pos.entry_ns), server_date(exit_ns)
+        if first >= last:
             return 0.0, 0
         rate = (self.swap.long_pct if pos.order.direction > 0 else self.swap.short_pct) / 100 / self.swap.days_per_year
-        total, nights = 0.0, 0
-        for day in days:
-            mult = 3 if day.dayofweek == self.swap.triple_weekday else 1
+        total, nights, day = 0.0, 0, first
+        while day < last:                    # one rollover per broker day boundary crossed
+            mult = 3 if day.weekday() == self.swap.triple_weekday else 1
             # price at the rollover = last M1 close before that server day ends (17:00 New York)
-            roll = pd.Timestamp(day.date()).tz_localize(NEW_YORK) + pd.Timedelta(hours=17)
-            k = int(np.searchsorted(self.m1.t, roll.tz_convert("UTC").value, "left")) - 1
-            price = self.m1.c[max(k, 0)]
-            total += price * self.cs * pos.lots * rate * mult
+            roll = datetime.combine(day, time(17), tzinfo=NY_TZ)
+            k = int(np.searchsorted(self.m1.t, int(roll.timestamp()) * 10**9, "left")) - 1
+            total += self.m1.c[max(k, 0)] * self.cs * pos.lots * rate * mult
             nights += mult
+            day += timedelta(days=1)
         return total, nights
 
     # --- candle strategies -------------------------------------------------------------------
