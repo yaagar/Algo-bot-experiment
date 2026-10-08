@@ -25,6 +25,8 @@ MT5 (logged in to the FTMO trial) must be open for anything marked *MT5*.
 | `spread_model.py` | No broker spread before Dec 2025: uses the 75th-pct 2026 spread for the same London hour, flags `spread_estimated`. |
 | `verify_server_time.py` | Checks the clock: daily break ends 18:00 NY; NFP spike lands 08:30 NY. |
 | `calendar_events.py` | US news times: FOMC (Fed site), NFP/CPI/PPI/PCE/GDP/retail (FRED, revision-only days dropped), ISM (business-day rule); cross-checked vs Forex Factory. |
+| `calendar_events.build_reserved()` | Same calendar for 2010-2021 from the Fed historical pages (per-meeting statement time, press-conference status), FRED and the ISM rule -> its own file `calendar_usd_high_2010_2021.parquet`. |
+| `reserved_prep.py` | 2010-2021 data preparation only (needs `--purpose`/`--confirm`): `calendar`, `gold` and `symbols` integrity checks (bars, gaps, server clock per year), `download` (via `exp3/pull_data.pull_reserved`), `login`. Reports in `results/reserved_prep/`. |
 
 ## Engine and rules
 | Module | What it does |

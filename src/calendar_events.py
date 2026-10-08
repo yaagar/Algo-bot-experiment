@@ -15,6 +15,7 @@ FRED_API_KEY=... in the project's .env file (git-ignored). Never in code.
 
 Run:  .venv/Scripts/python -m src.calendar_events
 """
+import json
 import os
 import re
 
@@ -23,7 +24,7 @@ import requests
 from pandas.tseries.holiday import USFederalHolidayCalendar
 
 from src.config import PROJECT_ROOT
-from src.data_access import read_forex_factory_from_2022
+from src.data_access import check_window, read_forex_factory
 from src.timeutils import NEW_YORK
 
 RAW = PROJECT_ROOT / "data" / "raw" / "calendar"
@@ -116,13 +117,13 @@ def nth_business_day(month_start, n):
     return days[n - 1]
 
 
-def ism_events():
+def ism_events(start=FROM, end=TO):
     """ISM manufacturing = 1st business day, services = 3rd, at 10:00 NY.
 
     Exception: in January ISM publishes one business day later (seen in all
     four Januaries 2022-2025 in the Forex Factory cross-check).
     """
-    months = pd.date_range(FROM, TO, freq="MS")
+    months = pd.date_range(start, end, freq="MS")
     january_shift = lambda m: 1 if m.month == 1 else 0
     return pd.concat([
         make_rows("ISM manufacturing", [nth_business_day(m, 1 + january_shift(m)) for m in months],
@@ -144,19 +145,19 @@ def fred_key():
     return key
 
 
-def fred_release_dates(release_id, key):
+def fred_release_dates(release_id, key, start=FROM, end=TO):
     params = {"release_id": release_id, "api_key": key, "file_type": "json",
-              "realtime_start": f"{FROM:%Y-%m-%d}", "realtime_end": "9999-12-31",
+              "realtime_start": f"{start:%Y-%m-%d}", "realtime_end": "9999-12-31",
               "include_release_dates_with_no_data": "true", "sort_order": "asc", "limit": 10000}
     r = requests.get(FRED_URL, params=params, timeout=60)
     r.raise_for_status()
     dates = pd.to_datetime([d["date"] for d in r.json()["release_dates"]])
-    return [d for d in dates if FROM <= d <= TO]
+    return [d for d in dates if start <= d <= end]
 
 
-def fred_vintage_dates(series_id, key):
+def fred_vintage_dates(series_id, key, start=FROM):
     params = {"series_id": series_id, "api_key": key, "file_type": "json",
-              "realtime_start": f"{FROM:%Y-%m-%d}", "limit": 10000}
+              "realtime_start": f"{start:%Y-%m-%d}", "limit": 10000}
     r = requests.get(FRED_VINTAGE_URL, params=params, timeout=60)
     r.raise_for_status()
     return set(pd.to_datetime(r.json()["vintage_dates"]))
@@ -182,16 +183,16 @@ def real_release_dates(release_dates, vintages, today, one_per_month=False):
     return kept
 
 
-def fred_events(key):
+def fred_events(key, start=FROM, end=TO, raw_name="fred_release_dates.csv"):
     today = pd.Timestamp.now().normalize()
     raw, rows = [], []
     for event, release_id in FRED_RELEASES.items():
-        dates = fred_release_dates(release_id, key)
-        vintages = fred_vintage_dates(FRED_KEY_SERIES[event], key)
+        dates = fred_release_dates(release_id, key, start, end)
+        vintages = fred_vintage_dates(FRED_KEY_SERIES[event], key, start)
         kept = real_release_dates(dates, vintages, today, one_per_month=(event == "Retail sales"))
         raw.append(pd.DataFrame({"event": event, "date": dates, "kept": [d in kept for d in dates]}))
         rows.append(make_rows(event, kept, "08:30", "FRED"))
-    pd.concat(raw).to_csv(RAW / "fred_release_dates.csv", index=False)   # keep what we pulled
+    pd.concat(raw).to_csv(RAW / raw_name, index=False)   # keep what we pulled
     return pd.concat(rows)
 
 
@@ -219,17 +220,21 @@ def apply_bea_times(cal):
 
 # --- Forex Factory (cross-check only, and the NFP server-time test) ---------------------
 
-def load_forex_factory_usd_high():
-    """USD high-impact rows from the Forex Factory file, 2022+.
+def load_forex_factory_usd_high(start=FROM, end=None, purpose=None, confirm=None, high_only=True):
+    """USD high-impact rows from the Forex Factory file, start <= day < end (default 2022+).
+
+    high_only=False keeps every impact level (2010-2021 check: FF rated e.g. PPI and PCE
+    below "High" in those years, which says nothing about whether our dates are right).
 
     Fixes the file's wrong timezone tag (Iran dropped DST in 2023): times are
     Tehran wall-clock, re-labelled with the real Tehran rule. Rows whose time
     was lost (shown 00:00 / 23:59:59) get time_utc = NaT, time_status='unknown'.
     """
-    df = read_forex_factory_from_2022(RAW / "forex_factory_cache.csv")
-    df = df[(df.Currency == "USD") & df.Impact.str.startswith("High")]
+    df = read_forex_factory(RAW / "forex_factory_cache.csv", f"{start:%Y-%m-%d}",
+                            f"{end:%Y-%m-%d}" if end is not None else None, purpose, confirm)
+    df = df[(df.Currency == "USD") & (df.Impact.str.startswith("High") | (not high_only))]
     wall = df.DateTime.str[:19]
-    df, wall = df[pd.to_datetime(wall) >= FROM], wall[pd.to_datetime(wall) >= FROM]
+    df, wall = df[pd.to_datetime(wall) >= start], wall[pd.to_datetime(wall) >= start]
     missing = wall.str[11:].isin(("00:00:00", "23:59:59")).values
     utc = (pd.to_datetime(wall).dt.tz_localize("Asia/Tehran", ambiguous="NaT", nonexistent="NaT")
            .dt.tz_convert("UTC").reset_index(drop=True))
@@ -242,12 +247,12 @@ def load_forex_factory_usd_high():
     return out
 
 
-def cross_check_with_forex_factory(cal):
-    """For 2022 -> Apr 2025: do our dates (and times, where FF kept them) agree with FF?"""
-    ff = load_forex_factory_usd_high()
-    window = cal[(pd.to_datetime(cal.date) >= FROM) & (pd.to_datetime(cal.date) <= FF_LAST_DAY)]
+def cross_check_with_forex_factory(cal, ff=None, start=FROM, end=FF_LAST_DAY, ff_names=FF_NAMES):
+    """For 2022 -> Apr 2025 (or start -> end): do our dates (and times, where FF kept them) agree with FF?"""
+    ff = load_forex_factory_usd_high() if ff is None else ff
+    window = cal[(pd.to_datetime(cal.date) >= start) & (pd.to_datetime(cal.date) <= end)]
     rows = []
-    for event, names in FF_NAMES.items():
+    for event, names in ff_names.items():
         ours = window[window.event == event]
         theirs = ff[ff.event.isin(names)]
         ff_dates = set(theirs.date)
@@ -273,6 +278,138 @@ def build(key):
     cal = cal[(pd.to_datetime(cal.date) >= FROM) & (pd.to_datetime(cal.date) <= TO)]
     cal = apply_bea_times(cal)
     return cal.sort_values("time_utc").reset_index(drop=True)
+
+
+# --- Reserved period 2010-2021 (option a; data preparation only) ------------------------
+#
+# Same sources and rules as above, plus the Fed's historical FOMC pages. Before 2022 the
+# statement time changed (14:15 to 2011, 12:30 at press-conference meetings 2011-12, 14:00
+# from 2013, plus unscheduled statements), so it is read per meeting from the Fed's own pages:
+#   1. the statement page ("For release at 2:00 p.m."), else
+#   2. the press-conference page ("Statement ... (Released <date> at 12:30 p.m.)"), else
+#   3. the Fed's press-release feed posting time, rounded down to the quarter hour (flagged).
+# Press-conference status = the meeting has a "Press Conference" link. Its start time is not
+# printed on the Fed pages, so it is a rule: 14:15 after a midday statement (2011-12), else statement + 30 min.
+# The 2009 page is read only for minutes released in January 2010.
+# Output goes to its own file; the 2022+ calendar is untouched.
+
+RESERVED_FROM = pd.Timestamp("2010-01-01")
+RESERVED_TO = pd.Timestamp("2021-12-31")
+RESERVED_OUT = PROJECT_ROOT / "data" / "processed" / "calendar_usd_high_2010_2021.parquet"
+FED = "https://www.federalreserve.gov"
+FED_RAW = RAW / "fed_2010_2021"
+FED_FEED = "/json/ne-press.json"
+# Older Forex Factory names for the same events, used only in the 2010-2021 cross-check
+FF_NAMES_RESERVED = {**FF_NAMES,
+                     "FOMC decision": ["Federal Funds Rate", "FOMC Statement"],
+                     "ISM services": ["ISM Services PMI", "ISM Non-Manufacturing PMI"]}
+
+
+def fed_page(path):
+    """A Fed web page, downloaded once and kept in data/raw/calendar/fed_2010_2021/."""
+    f = FED_RAW / path.strip("/").replace("/", "_")
+    if not f.exists():
+        FED_RAW.mkdir(parents=True, exist_ok=True)
+        r = requests.get(FED + path, headers={"User-Agent": "Mozilla/5.0"}, timeout=60)
+        r.raise_for_status()
+        f.write_bytes(r.content)
+    return f.read_bytes().decode("utf-8-sig", errors="replace")
+
+
+def _plain(html):
+    return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", html))
+
+
+def _hhmm(h, m, ampm):
+    return f"{int(h) % 12 + (12 if ampm.lower() == 'p' else 0):02d}:{m}"
+
+
+def fomc_meetings_reserved():
+    """One row per 2010-2021 meeting/call listed on the Fed pages: label, statement link, presser, minutes."""
+    segments = []
+    for year in range(RESERVED_FROM.year - 1, 2021):
+        html = fed_page(f"/monetarypolicy/fomchistorical{year}.htm")
+        parts = re.split(r"<h5[^>]*>", html)[1:]
+        for part in parts:
+            head = re.match(r"\s*([^<]*?)\s*-\s*(20\d\d)\s*</h5>", part)
+            if head:
+                segments.append((head.group(1), part))
+    cal_page = fed_page("/monetarypolicy/fomccalendars.htm")
+    block = cal_page[cal_page.find("2021 FOMC Meetings"):]
+    block = block[:block.find("FOMC Meetings", 30)] if block.find("FOMC Meetings", 30) > 0 else block
+    for row in block.split('fomc-meeting"')[1:]:
+        month = re.search(r"fomc-meeting__month[^>]*><strong>([^<]+)<", row)
+        day = re.search(r"fomc-meeting__date[^>]*>([^<]+)<", row)
+        if month and day:
+            segments.append((f"{month.group(1)} {day.group(1).strip()} Meeting", row))
+
+    rows = []
+    for label, seg in segments:
+        statement = (re.search(r'href="(/newsevents/press(?:releases)?/monetary/?(\d{8})a\.htm)"[^>]*>\s*Statement\s*<', seg)
+                     or re.search(r'Statement:</strong>.*?href="(/newsevents/pressreleases/monetary(\d{8})a\.htm)"', seg, re.S))
+        presser = re.search(r'href="(/monetarypolicy/fomcpresconf(\d{8})\.htm)"', seg)
+        minutes = re.search(r"Minutes[^()]{0,80}\(Released ([A-Z][a-z]+\.? \d{1,2}, \d{4})(?: at (\d{1,2}):(\d\d) ?([ap])\.m\.)?",
+                            _plain(seg))
+        rows.append({
+            "label": label.replace("  ", " "),
+            "statement_path": statement.group(1) if statement else None,
+            "statement_date": pd.Timestamp(statement.group(2)) if statement else None,
+            "presser_path": presser.group(1) if presser else None,
+            "minutes_date": pd.to_datetime(minutes.group(1).replace(".", "")) if minutes else None,
+            "minutes_hhmm": _hhmm(*minutes.group(2, 3, 4)) if minutes and minutes.group(2) else "14:00",
+        })
+    return pd.DataFrame(rows)
+
+
+def statement_time(row, feed):
+    """(hh:mm New York, source) for one statement, by the priority in the section comment."""
+    m = re.search(r"For release at (\d{1,2}):(\d\d) ?([ap])\.m\.", _plain(fed_page(row.statement_path)), re.I)
+    if m:
+        return _hhmm(*m.groups()), "Fed statement page"
+    if isinstance(row.presser_path, str):
+        m = re.search(r"Statement[^()]*\(Released [A-Za-z]+ \d{1,2}, \d{4} at (\d{1,2}):(\d\d) ?([ap])\.m\.\)",
+                      _plain(fed_page(row.presser_path)))
+        if m:
+            return _hhmm(*m.groups()), "Fed press-conference page"
+    posted = feed.get(f"{row.statement_date:%Y%m%d}")
+    if posted is not None:
+        return posted.floor("15min").strftime("%H:%M"), "Fed feed posting time, rounded down (approx.)"
+    return None, "no time found"
+
+
+def fomc_events_reserved():
+    meetings = fomc_meetings_reserved()
+    feed = {}
+    for item in json.loads(fed_page(FED_FEED)):
+        hit = re.search(r"monetary(\d{8})a\.htm$", item.get("l", ""))
+        if hit and "FOMC statement" in item.get("t", "") and ":" in item["d"]:      # some carry no time
+            feed[hit.group(1)] = pd.to_datetime(item["d"], format="%m/%d/%Y %I:%M:%S %p")
+    rows = []
+    for row in meetings[meetings.statement_path.notna()].itertuples():
+        hhmm, source = statement_time(row, feed)
+        rows.append(("FOMC decision", row.statement_date, hhmm, source))
+        if isinstance(row.presser_path, str):
+            h, m = map(int, hhmm.split(":"))
+            presser = "14:15" if "12:00" <= hhmm < "13:00" else f"{h + (m + 30) // 60:02d}:{(m + 30) % 60:02d}"
+            rows.append(("FOMC press conference", row.statement_date, presser,
+                         "rule: 14:15 after a midday statement, else statement + 30 min"))
+    for row in meetings[meetings.minutes_date.notna()].itertuples():
+        rows.append(("FOMC minutes", row.minutes_date, row.minutes_hhmm, "Fed historical page"))
+    events = pd.DataFrame(rows, columns=["event", "day", "hhmm", "source"]).drop_duplicates(["event", "day"])
+    return pd.DataFrame({"event": events.event, "date": [d.date() for d in events.day],
+                         "time_utc": [ny_to_utc(d, t) for d, t in zip(events.day, events.hhmm)],
+                         "source": events.source}), meetings
+
+
+def build_reserved(key, purpose, confirm):
+    """The 2010-2021 calendar (data preparation only). Returns (calendar, meetings table)."""
+    check_window(RESERVED_FROM, RESERVED_TO, "news calendar 2010-2021 (Fed, FRED, ISM rule)", purpose, confirm)
+    fomc, meetings = fomc_events_reserved()
+    cal = pd.concat([fomc, ism_events(RESERVED_FROM, RESERVED_TO),
+                     fred_events(key, RESERVED_FROM, RESERVED_TO, "fred_release_dates_2010_2021.csv")],
+                    ignore_index=True)
+    cal = cal[(pd.to_datetime(cal.date) >= RESERVED_FROM) & (pd.to_datetime(cal.date) <= RESERVED_TO)]
+    return cal.sort_values("time_utc").reset_index(drop=True), meetings
 
 
 def main():

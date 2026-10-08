@@ -88,12 +88,19 @@ def read_full_file_for_data_prep(path, purpose=None, confirm=None, log_path=None
 
 
 def read_forex_factory_from_2022(path):
-    """The Forex Factory CSV, keeping only rows dated 2022 or later.
+    """The Forex Factory CSV, keeping only rows dated 2022 or later."""
+    return read_forex_factory(path, "2022-01-01")
 
-    The CSV can't be filtered on read, so it is read in chunks and earlier rows are
-    dropped from each chunk before anything else sees them.
+
+def read_forex_factory(path, start, end=None, purpose=None, confirm=None, log_path=None):
+    """The Forex Factory CSV, keeping only rows dated start <= day < end (YYYY-MM-DD strings).
+
+    The CSV can't be filtered on read, so it is read in chunks and rows outside the
+    window are dropped from each chunk before anything else sees them.
     """
+    check_window(start, end, "Forex Factory calendar", purpose, confirm, log_path)
     keep = []
     for chunk in pd.read_csv(path, chunksize=20_000):
-        keep.append(chunk[chunk.DateTime.str[:10] >= "2022-01-01"])
+        day = chunk.DateTime.str[:10]
+        keep.append(chunk[(day >= start) & (day < end if end else True)])
     return pd.concat(keep, ignore_index=True)

@@ -166,6 +166,64 @@ def pull_metaquotes(terminal_path=METAQUOTES_TERMINAL, symbols=("EURUSD", "USDJP
         data_mt5.disconnect()
 
 
+# --- Reserved period 2010-2021: data preparation only (Yash's confirmation 2026-10-08) -----------
+
+RESERVED_START = datetime(2010, 1, 1, tzinfo=timezone.utc)
+RESERVED_LAST_MONTH = datetime(2021, 12, 1, tzinfo=timezone.utc)      # pull_rates includes this month
+RESERVED_MARKETS = ("Silver", "WTI crude oil", "S&P 500", "Nasdaq 100", "EURUSD", "USDJPY", "AUDUSD")
+RESERVED_RAW = RAW.parent / "reserved"
+RESERVED_PROCESSED = PROCESSED.parent / "reserved"
+
+
+def pull_reserved(purpose, confirm, source="broker", timeframes=("H1", "M1"), markets=RESERVED_MARKETS):
+    """H1 and M1 bars, 2010-01 to 2021-12 (server months), for the Experiment 3 markets except gold.
+
+    source "broker" = the FTMO trial terminal (settings.yaml); "metaquotes" = the MetaQuotes-Demo
+    terminal, used only where the broker has no history (as in Experiment 3). Each source keeps its
+    own folder; UTC uses that source's clock (broker New York + 7 h, MetaQuotes European DST).
+    Returns {market: {tf: (symbol, bars, first bar server time)}} for the report.
+    """
+    check_window(RESERVED_START, RESERVED_LAST_MONTH, f"2010-2021 {source} H1/M1 download", purpose, confirm)
+    terminal = load_settings()["mt5"]["terminal_path"] if source == "broker" else METAQUOTES_TERMINAL
+    account = data_mt5.connect(terminal)
+    if source == "metaquotes" and account.server != "MetaQuotes-Demo":
+        data_mt5.disconnect()
+        raise ConnectionError(f"expected MetaQuotes-Demo, terminal is on {account.server}")
+    convert = to_utc if source == "broker" else to_utc_metaquotes
+    raw_dir, processed_dir = RESERVED_RAW / source, RESERVED_PROCESSED / source
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    processed_dir.mkdir(parents=True, exist_ok=True)
+    out = {}
+    try:
+        names = [s.name for s in mt5.symbols_get() or []]
+        for market in [m for m in MARKETS if m.name in markets]:
+            symbol = find_symbol(market, names)
+            if symbol is None:
+                print(f"{source}: {market.name} not offered")
+                continue
+            mt5.symbol_select(symbol, True)
+            out[market.name] = {}
+            for tf in timeframes:
+                raw = data_mt5.pull_rates(symbol, tf, RESERVED_START, RESERVED_LAST_MONTH)
+                if raw.empty:
+                    print(f"{source}: {symbol} {tf}: no bars before 2022")
+                    continue
+                raw.to_parquet(raw_dir / f"{symbol}_{tf}.parquet", index=False)
+                convert(raw).to_parquet(processed_dir / f"{symbol}_{tf}.parquet", index=False)
+                out[market.name][tf] = (symbol, len(raw), str(raw.time_server.iloc[0]))
+                print(f"{source}: {symbol} {tf}: {len(raw)} bars from {raw.time_server.iloc[0]} (server)")
+    finally:
+        data_mt5.disconnect()
+    return out
+
+
+def confirm_broker_login():
+    """Reconnect to the FTMO trial terminal and return (login, server, company) — read-only."""
+    account = data_mt5.connect(load_settings()["mt5"]["terminal_path"])
+    data_mt5.disconnect()
+    return account.login, account.server, account.company
+
+
 if __name__ == "__main__":
     import sys
     pull_metaquotes() if "--metaquotes" in sys.argv else main()
