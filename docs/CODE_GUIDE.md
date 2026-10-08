@@ -11,43 +11,60 @@ The rules live in `docs/EXPERIMENT_SPEC.md` — this file only explains the code
 | `config/settings.yaml` | Every number the code uses (account size, risk, times, costs). Copied from the spec. |
 | `src/` | The Python code |
 | `tests/` | Automatic checks (`pytest`) |
-| `data/raw/`, `data/processed/` | Downloaded prices etc. Not in git. *(empty until Phase 2)* |
+| `data/raw/` | Downloads exactly as received (prices in broker server time, calendar files, headlines). Not in git. |
+| `data/processed/` | Cleaned data, all times in UTC. Not in git. |
 | `prompts/` | Claude prompts for Bot B *(Phase 5)* |
-| `results/` | Backtest output and final report *(Phase 3+)* |
+| `results/` | Reports and plots (`results/phase2/data_report.md`) |
 
 ## How to run
 
+MT5 (OANDA MetaTrader 5, logged in to the FTMO trial) must be open for anything that says *MT5*.
+
 ```
-.venv\Scripts\python -m src.check_mt5     # check MT5 connection + gold symbol
-.venv\Scripts\python -m pytest            # run all tests
+.venv\Scripts\python -m src.check_mt5           # MT5: connection + gold symbol info
+.venv\Scripts\python -m src.pull_prices         # MT5: download all M1/M15/H1 bars
+.venv\Scripts\python -m src.process_prices      # convert bars to UTC
+.venv\Scripts\python -m src.verify_server_time  # prove the server-clock rule (+ plot)
+.venv\Scripts\python -m src.calendar_events     # build the USD news calendar
+.venv\Scripts\python -m src.headlines           # download GDELT headlines (slow, resumable)
+.venv\Scripts\python -m src.check_pnl           # MT5: compare our P&L maths with real trades
+.venv\Scripts\python -m pytest                  # run all tests
 ```
-MT5 (OANDA MetaTrader 5, logged in to the FTMO trial) must be open first.
 
 ## What each code file does
 
-**`src/config.py`** — reads `settings.yaml`. Also holds `commission_usd()`:
-commission = lots × 100 oz × price × 0.0007%, paid on entry and again on exit.
+**`config.py`** — reads `settings.yaml`; `commission_usd()` = lots × 100 oz × price × 0.0007%, per fill.
 
-**`src/data_mt5.py`** — the only file that talks to MT5. Read-only.
-- `connect()` attaches to the already-open terminal (no passwords in code).
-- `pick_gold_symbol()` finds gold among the broker's symbols (here: `XAUUSD.sim`).
-- `symbol_specs()` returns contract size, lot step, min lot, etc.
-- `server_time_estimate()` compares the latest price's timestamp with real UTC
-  to guess the broker's clock offset (currently UTC+3).
+**`data_mt5.py`** — the only file that talks to MT5, read-only. Connects, finds gold,
+reads its specs, and `pull_rates()` downloads bars one month at a time.
 
-**`src/check_mt5.py`** — Phase 1 check. Connects, picks gold, prints the above.
+**`timeutils.py`** — time conversions. The broker clock is **New York + 7 hours**
+(UTC+3 in US summer, UTC+2 in US winter). `server_to_utc()` turns broker times into UTC.
 
-**`tests/test_phase1.py`** — checks gold detection, that config numbers match the
-spec, that the commission formula reproduces your real FTMO trial fills, and that
-no trading function (`order_send` …) ever appears in `src/`.
+**`pull_prices.py`** → `data/raw/XAUUSD.sim_{M1,M15,H1}.parquet` + metadata JSON.
+**`process_prices.py`** → same bars with a `time_utc` column in `data/processed/`.
+
+**`verify_server_time.py`** — proves the clock rule two ways: the daily trading break
+always ends at 18:00 New York, and the NFP price spike always lands on 08:30 New York.
+
+**`calendar_events.py`** — builds the list of US high-impact news times. Uses the
+Forex Factory file up to April 2025 (after fixing its timezone label and filling
+missing times), then the Fed and BEA official schedules.
+
+**`headlines.py`** — downloads news headlines from GDELT, oldest days first, one file
+per topic per day, so it can stop and resume. Waits politely when GDELT says "too many requests".
+
+**`pnl.py`** — profit/loss of a trade and its commission (used by the backtester later).
+**`check_pnl.py`** — reads your closed demo trades and checks `pnl.py` gives the same numbers as the broker.
 
 ## Flow so far
 
 ```
-settings.yaml ──> check_mt5 ──> data_mt5.connect ──> MT5 terminal (read-only)
-                                 └─ pick gold ─ print specs ─ print server time
+MT5 ──pull_prices──> raw bars (server time) ──process_prices──> UTC bars
+                                   timeutils (NY+7h) ┘   verified by verify_server_time
+Forex Factory + Fed + BEA ──calendar_events──> calendar_usd_high.parquet (UTC)
+GDELT ──headlines──> data/raw/gdelt/<topic>/<day>.json
 ```
 
-## Coming next (Phase 2)
-Download M1/M15/H1 gold prices, verify the server clock against NFP releases,
-load the economic calendar and news headlines.
+## Coming next (Phase 3)
+Backtester + Bot A + random-entry control (C1) on the development period.

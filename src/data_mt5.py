@@ -97,3 +97,45 @@ def server_time_estimate(symbol, now_utc=None):
         "bid": tick.bid,
         "ask": tick.ask,
     }
+
+
+TIMEFRAMES = {"M1": mt5.TIMEFRAME_M1, "M15": mt5.TIMEFRAME_M15, "H1": mt5.TIMEFRAME_H1}
+
+
+def month_starts(first, last):
+    """First day of each month from `first` to `last` inclusive (tz-aware UTC)."""
+    current = datetime(first.year, first.month, 1, tzinfo=timezone.utc)
+    while current <= last:
+        yield current
+        current = datetime(current.year + current.month // 12, current.month % 12 + 1, 1,
+                           tzinfo=timezone.utc)
+
+
+def pull_rates(symbol, timeframe, first, last):
+    """All bars between `first` and `last`, pulled one month at a time.
+
+    Times in and out are BROKER SERVER wall-clock time (MT5 stores bars that
+    way). Datetimes passed to MT5 must be timezone-aware: a naive datetime is
+    silently read as this PC's local time and shifts the request by hours.
+
+    Monthly chunks keep each request small. Bars outside the requested month
+    are dropped: when a month has no data, MT5 returns its oldest bar instead
+    of nothing, which would otherwise sneak in as a fake duplicate.
+    """
+    import pandas as pd
+
+    tf = TIMEFRAMES[timeframe]
+    chunks = []
+    for start in month_starts(first, last):
+        end = datetime(start.year + start.month // 12, start.month % 12 + 1, 1, tzinfo=timezone.utc)
+        rates = mt5.copy_rates_range(symbol, tf, start, end)
+        if rates is None or len(rates) == 0:
+            continue
+        df = pd.DataFrame(rates)
+        df["time_server"] = pd.to_datetime(df["time"], unit="s")
+        df = df[(df["time_server"] >= start.replace(tzinfo=None)) & (df["time_server"] < end.replace(tzinfo=None))]
+        chunks.append(df.drop(columns="time"))
+    if not chunks:
+        return pd.DataFrame()
+    out = pd.concat(chunks).drop_duplicates("time_server").sort_values("time_server").reset_index(drop=True)
+    return out[["time_server", "open", "high", "low", "close", "tick_volume", "spread", "real_volume"]]

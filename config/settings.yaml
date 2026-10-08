@@ -5,8 +5,8 @@
 mt5:
   # Exact terminal to attach to. Pinned so we never connect to a different MT5 by accident.
   terminal_path: 'C:\Program Files\OANDA MetaTrader 5\terminal64.exe'
-  # "auto" = detect the XAU/USD symbol. Set a name (e.g. "XAUUSD.sim") to force it.
-  symbol: auto
+  # Fixed to the symbol detected in Phase 1. "auto" would re-detect it.
+  symbol: XAUUSD.sim
   connect_timeout_ms: 60000
 
 costs:                         # spec §8 / §10 (v1.1)
