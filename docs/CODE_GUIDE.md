@@ -85,6 +85,11 @@ A's stop distance, same exits. **`ftmo_rules.py`** — FTMO daily-loss / max-los
 **`leak_test.py`** — shuffles all data after a random time T and checks no decision before T changes.
 **`run_phase3.py`** — runs it all and writes `results/phase3/`.
 **`run_phase4.py`** — the one-time holdout run (same engine, 2026-01-01 → 2026-09-30); results in `results/phase4/`.
+**`phase4_skip_reasons.py`** — read-only: re-runs the holdout unchanged and counts why days had no trade.
+**`filters.py`** — Phase 4b tags for each trade: narrow box (below the prior-20-day median width),
+daily trend (yesterday's broker close vs its 20-day average), FOMC/CPI/NFP day. History only, no look-ahead.
+**`run_phase4b.py`** — tags every 2022-2025 Bot A trade and checks the three candidate filters
+against the ≥ 3-of-4-years rule; results in `results/phase4b/`.
 
 ## Flow so far
 
@@ -97,5 +102,5 @@ GDELT raw GKG files ──headlines_gkg──> data/raw/gdelt_gkg/<day>.jsonl
 UTC bars + calendar ──backtest (strategy_asian / controls)──> trades ──metrics + ftmo_rules──> results/phase3/
 ```
 
-## Coming next (Phase 5)
-Claude filter (Bot B): prompts for approval → isolation test → B + C2 on the Claude window (2026-07-01 → latest).
+## Coming next (Phase 4c)
+One-time confirmation on 2010–2021 of the filter(s) Yash adopts, plus C1, all three cost cases.
