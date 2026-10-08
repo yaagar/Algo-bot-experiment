@@ -107,11 +107,12 @@ class S2Box:
 
 
 class S3Donchian:
-    """Turtle-style channel breakout on H4: 20-bar entry, 10-bar exit, 2 x ATR(20) initial stop."""
+    """Turtle-style channel breakout: 20-bar entry, 10-bar exit, 2 x ATR(20) initial stop on H4 (Experiment 2).
+    Experiment 3 runs the same code on daily bars with 55/20: S3Donchian(market, 55, 20, tf="D1")."""
     name = "S3"
 
-    def __init__(self, market, channel=20, exit_channel=10):
-        self.bars = b = market.bars["H4"]
+    def __init__(self, market, channel=20, exit_channel=10, tf="H4"):
+        self.bars = b = market.bars[tf]
         hi, lo = b.high, b.low
         self.up = hi.shift(1).rolling(channel, min_periods=channel).max().to_numpy()
         self.dn = lo.shift(1).rolling(channel, min_periods=channel).min().to_numpy()

@@ -13,6 +13,11 @@ London, one position at a time (signals while in a trade are skipped and counted
 Size is fractional: lots = risk $ / (stop distance x contract size); results are in R.
 Swap is charged per rollover held (broker midnight = 17:00 New York), x3 on Wednesday night.
 Every decision is logged with the time it was made and the newest data it saw (spec §9).
+
+Experiment 3 (daily, multi-market) reuses this engine with weekend_rule=False (swing account:
+positions held over weekends, no Friday cutoff), an empty news calendar, a per-lot commission
+for FX, and quote_per_usd for markets whose P&L currency is not USD (USDJPY: P&L in JPY).
+Results stay in R, which is the same in any currency.
 """
 from dataclasses import dataclass, field
 from datetime import datetime, time, timedelta, timezone
@@ -27,12 +32,14 @@ from src.timeutils import LONDON, NEW_YORK, utc_to_server
 NS_MIN = 60 * 10**9
 NY_TZ = ZoneInfo(NEW_YORK)
 LONG_BREAK_NS = 120 * NS_MIN
+NO_FORCED_EXIT = np.iinfo(np.int64).max // 2      # weekend_rule=False and no time exit
 
 
 @dataclass(frozen=True)
 class Costs:
     spread_mult: float = 1.0
     commission_pct: float = 0.0007
+    commission_per_lot_usd: float = 0.0     # FX: fixed $ per lot per side (Experiment 3)
 
 
 @dataclass(frozen=True)
@@ -101,14 +108,17 @@ def server_date(t_ns):
 
 
 class Engine:
-    def __init__(self, m1, events, costs, swap, risk_usd=50.0, contract=100.0, blackout_min=30):
+    def __init__(self, m1, events, costs, swap, risk_usd=50.0, contract=100.0, blackout_min=30,
+                 weekend_rule=True, quote_per_usd=None):
         self.m1, self.events, self.costs, self.swap = m1, events, costs, swap
         self.risk, self.cs, self.blackout = risk_usd, contract, blackout_min
+        self.weekend_rule = weekend_rule             # False = hold over weekends, no Friday cutoff
+        self.quote_per_usd = quote_per_usd or (lambda price: 1.0)   # P&L currency units per US dollar
 
     # --- fills and exits ---------------------------------------------------------------------
 
     def open_position(self, order, fill_ns, bid, spread, res):
-        if friday_cutoff(fill_ns):
+        if self.weekend_rule and friday_cutoff(fill_ns):
             return self._block(res, fill_ns, "after Friday 16:00 London")
         if self.events.within(fill_ns, self.blackout):
             return self._block(res, fill_ns, "news blackout")
@@ -119,11 +129,12 @@ class Engine:
         if not r_dist > 0:
             return self._block(res, fill_ns, "entry beyond stop")
         target = price + order.direction * order.target_r * r_dist if order.target_r else None
-        friday = friday_close_ns(fill_ns)
+        friday = friday_close_ns(fill_ns) if self.weekend_rule else NO_FORCED_EXIT
         forced = friday if order.time_exit_ns is None else min(friday, order.time_exit_ns)
         lots = self.risk / (r_dist * self.cs)
         res.decisions.append((fill_ns, "entry", (order.direction, round(price, 3), round(stop, 3)), fill_ns))
-        return Position(order, fill_ns, price, bid, spread, stop, target, lots, forced, forced_is_friday=forced == friday)
+        return Position(order, fill_ns, price, bid, spread, stop, target, lots, forced,
+                        forced_is_friday=self.weekend_rule and forced == friday)
 
     def _block(self, res, t_ns, why):
         res.blocked[why] = res.blocked.get(why, 0) + 1
@@ -185,7 +196,9 @@ class Engine:
         d, cs = pos.order.direction, self.cs
         gross = d * (price - pos.entry_price) * pos.lots * cs
         comm = (commission_usd(pos.lots, pos.entry_price, cs, self.costs.commission_pct)
-                + commission_usd(pos.lots, price, cs, self.costs.commission_pct))
+                + commission_usd(pos.lots, price, cs, self.costs.commission_pct)
+                + pos.lots * self.costs.commission_per_lot_usd * (self.quote_per_usd(pos.entry_price)
+                                                                  + self.quote_per_usd(price)))
         swap, nights = self.swap_for(pos, exit_ns)
         net = gross - comm + swap
         risk = (pos.entry_price - pos.stop) * d * pos.lots * cs

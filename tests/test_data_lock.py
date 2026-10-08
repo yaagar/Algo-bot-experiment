@@ -20,7 +20,7 @@ RESULTS = PROJECT_ROOT / "results"
 
 
 def src_lines():
-    for f in SRC.glob("*.py"):
+    for f in SRC.rglob("*.py"):
         for n, line in enumerate(f.read_text(encoding="utf-8").splitlines(), 1):
             if not line.lstrip().startswith("#"):
                 yield f.name, n, line
@@ -44,8 +44,10 @@ def test_forex_factory_csv_read_only_through_data_access():
 def test_mt5_history_only_pulled_behind_the_lock():
     copy = [f"{f}:{n}" for f, n, line in src_lines() if "copy_rates" in line and f != "data_mt5.py"]
     pulls = [f for f, n, line in src_lines() if re.search(r"\bpull_rates\(", line) and "def pull_rates" not in line]
-    assert copy == [] and set(pulls) <= {"pull_prices.py"}
+    assert copy == [] and set(pulls) <= {"pull_prices.py", "pull_data.py"}
     assert "check_window(SEARCH_FROM" in (SRC / "pull_prices.py").read_text(encoding="utf-8")
+    exp3 = (SRC / "exp3" / "pull_data.py").read_text(encoding="utf-8")
+    assert "check_window(START" in exp3 and 'START = datetime(2022, 1, 1' in exp3
 
 
 def test_pull_prices_refuses_without_confirmation():
