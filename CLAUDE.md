@@ -1,6 +1,12 @@
 # Gold Bot Experiment — instructions for Claude Code
 
-Read `docs/EXPERIMENT_SPEC.md` before doing anything. It is the single source of truth.
+Two specs. Read the active one before doing anything; it is the source of truth.
+
+- **Active: `docs/EXPERIMENT_2_SPEC.md`** — Experiment 2, strategy comparison (S1–S5 and combination). Its phases (E2-1 … E2-5) are the current work.
+- **Finished: `docs/EXPERIMENT_SPEC.md`** — Experiment 1 (Asian breakout + Claude filter). Everything Experiment 2 doesn't restate (data pipeline, clock conversion, costs, FTMO simulation, news calendar, leak tests, data lock) is inherited from it unchanged. Its pending Phase 4c is folded into the single future 2010–2021 run.
+- 2010–2021 is reserved: data goes only through `src/data_access.py`, which refuses it without Yash's dated confirmation.
+
+Section references below (§10, §12) refer to whichever spec is active.
 
 ## Ground rules
 - **The spec is locked.** Never change a rule, number, data period or pass/fail criterion. If something seems wrong, missing or impossible, stop and ask Yash. Never "fix" a result by changing rules.
