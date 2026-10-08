@@ -1,4 +1,4 @@
-# Gold Bot Experiment — Spec v1.0 (LOCKED)
+# Gold Bot Experiment — Spec v1.1 (LOCKED)
 
 Owner: Yash. Built by: Claude Code. Written: 2026-10-07.
 
@@ -36,6 +36,7 @@ Run every arm on two entry timeframes: **M15** and **H1** (breakout candle timef
 | Min trading days | 4 |
 | Trading period | Unlimited |
 | Standard funded-stage restrictions | No new trades within ±2 min of high-impact news; positions closed before weekend |
+| Position mode | FTMO US uses **netting** mode (one position per symbol). Bots A/B hold at most one gold position at a time, so this changes no rule. |
 
 Simulate these rules on every backtest and report whether/when the account would have been breached.
 
@@ -113,7 +114,7 @@ If the broker's history doesn't reach 2022, use the earliest available and repor
 **Price:** MetaTrader5 Python package from Yash's MT5 terminal. Gold symbol name varies by broker (`XAUUSD`, `XAUUSD.`, `GOLD`…): detect it.
 - Pull M1 (as far back as available), M15 and H1, including the `spread` column. Save to `data/raw/` as Parquet with a metadata file (symbol, broker, server, contract size, volume step, min volume, pull timestamp).
 - **Broker server time:** MT5 timestamps are server time with no timezone. Determine the offset (usually UTC+2 winter / UTC+3 summer) and verify it: plot average absolute M1 return around US NFP release times (08:30 New York) on at least 4 summer and 4 winter dates; the spike must line up after conversion. Store all data internally in UTC.
-- **Costs:** spread from data; commission per lot from `config/settings.yaml` (Yash fills in FTMO's real value); swap = 0 (no overnight).
+- **Costs:** spread from data; commission = **% of notional, charged per side** (on entry and again on exit), where notional = lots × contract size × fill price. Base case **0.0007% per side** (observed on Yash's FTMO trial account); stress case **0.0025% per side** (FTMO US published rate). Values in `config/settings.yaml`. Swap = 0 (no overnight).
 
 **Economic calendar (USD, high impact):**
 - 2022 → Apr 2025: the public Forex Factory calendar dataset on Hugging Face (2007–2025).
@@ -133,7 +134,7 @@ If the broker's history doesn't reach 2022, use the earliest available and repor
 
 ## 10. Metrics (per arm, per timeframe)
 
-Trades; win rate; average R; expectancy in $; net profit; **monthly P&L table**; % months profitable; average monthly $; worst month; worst day; max drawdown ($ and %); longest losing streak; FTMO breach (yes/no/when); number of FTMO-flagged exits; cost stress at 1.5× spread.
+Trades; win rate; average R; expectancy in $; net profit; **monthly P&L table**; % months profitable; average monthly $; worst month; worst day; max drawdown ($ and %); longest losing streak; FTMO breach (yes/no/when); number of FTMO-flagged exits; cost stress at 1.5× spread; cost stress at 0.0025% commission per side.
 
 **Robustness nudge (A only, report — do not select):** box end 06:30 / 07:30; take-profit 1.3R / 1.7R. Flag any variant where profit collapses.
 
@@ -152,6 +153,8 @@ Trades; win rate; average R; expectancy in $; net profit; **monthly P&L table**;
 - Beats ≥ 90% of random-veto (C2) runs on both drawdown and worst month
 - Still passes the overall rule
 - Consistency check flip rate < 20%
+
+**Cost cases:** report every pass/fail verdict above under the base case, under the 1.5× spread stress, and under the 0.0025% commission stress.
 
 Because the Claude window is only ~3 months, a B pass is **provisional** until confirmed by a 4–6 week demo forward test.
 
@@ -187,3 +190,4 @@ Bot #2: box rule (previous-day high/low wick rejection). Demo forward test of th
 
 ## Change Log
 - v1.0 — 2026-10-07 — initial lock.
+- v1.1 — 2026-10-07 — commission changed from flat per-lot to % of notional per side (base 0.0007% observed on the FTMO trial; stress 0.0025% per FTMO US published rate). Also noted that FTMO US uses netting mode (one position per symbol). Approved by Yash before any backtest result was seen.

@@ -9,11 +9,13 @@ mt5:
   symbol: auto
   connect_timeout_ms: 60000
 
-costs:
-  # Commission in USD per 1.0 lot, ROUND TURN (open + close together).
-  # PLACEHOLDER — Yash to fill in FTMO's real value. Backtests refuse to run while null.
-  commission_per_lot_round_turn_usd: null
-  swap: 0                      # spec §8: no overnight holds
+costs:                         # spec §8 / §10 (v1.1)
+  # Commission = % of notional, charged PER SIDE (entry and exit each pay it).
+  # notional = lots x contract_size x fill price. Values are in PERCENT.
+  commission_pct_per_side: 0.0007         # base: observed on FTMO trial account
+  commission_pct_per_side_stress: 0.0025  # stress: FTMO US published rate
+  spread_stress_multiplier: 1.5           # stress: 1.5x spread
+  swap: 0                      # no overnight holds
 
 account:                       # spec §3 — FTMO 2-Step, $10,000, Standard
   initial_balance: 10000

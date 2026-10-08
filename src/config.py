@@ -1,4 +1,4 @@
-"""Load config/settings.yaml."""
+"""Load config/settings.yaml and small helpers that read it."""
 from pathlib import Path
 
 import yaml
@@ -12,12 +12,12 @@ def load_settings(path=SETTINGS_PATH):
         return yaml.safe_load(f)
 
 
-def commission_per_lot(settings):
-    """Round-turn commission in USD per lot. Refuses to guess if it is still a placeholder."""
-    value = settings["costs"]["commission_per_lot_round_turn_usd"]
-    if value is None:
-        raise ValueError(
-            "Commission is still a placeholder in config/settings.yaml "
-            "(costs.commission_per_lot_round_turn_usd). Ask Yash for FTMO's real value."
-        )
-    return float(value)
+def commission_usd(lots, price, contract_size, pct_per_side):
+    """Commission for ONE side (one fill) of a trade, in USD.
+
+    FTMO charges a percentage of the trade's value on every fill, so a full
+    trade (entry + exit) pays this twice — once at each fill price.
+    Example: 0.1 lot x 100 oz x $4,106.91 x 0.0007% = $0.29.
+    """
+    notional = lots * contract_size * price
+    return notional * pct_per_side / 100

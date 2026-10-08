@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from src.config import PROJECT_ROOT, commission_per_lot, load_settings
+from src.config import PROJECT_ROOT, commission_usd, load_settings
 from src.data_mt5 import pick_gold_symbol
 
 
@@ -45,11 +45,18 @@ def test_settings_match_locked_spec_numbers():
     assert s["strategy_asian"]["take_profit_r"] == 1.5
 
 
-def test_commission_placeholder_refuses_to_guess():
-    s = load_settings()
-    s["costs"]["commission_per_lot_round_turn_usd"] = None
-    with pytest.raises(ValueError):
-        commission_per_lot(s)
+def test_commission_matches_real_ftmo_trial_fills():
+    # Two real gold fills on Yash's FTMO trial account (2026-10-07), broker rounds to cents.
+    pct = load_settings()["costs"]["commission_pct_per_side"]
+    assert round(commission_usd(0.10, 4106.91, 100, pct), 2) == 0.29
+    assert round(commission_usd(0.01, 4111.48, 100, pct), 2) == 0.03
+
+
+def test_commission_cost_cases_from_spec_v1_1():
+    costs = load_settings()["costs"]
+    assert costs["commission_pct_per_side"] == 0.0007
+    assert costs["commission_pct_per_side_stress"] == 0.0025
+    assert costs["spread_stress_multiplier"] == 1.5
 
 
 # --- safety: this project never trades ---------------------------------------

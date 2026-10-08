@@ -7,6 +7,8 @@ from src.config import load_settings
 from src import data_mt5
 
 STALE_TICK_SECONDS = 120
+# MT5 account.margin_mode values
+MARGIN_MODES = {0: "netting (one position per symbol)", 1: "exchange", 2: "hedging (many positions per symbol)"}
 
 
 def main():
@@ -20,6 +22,7 @@ def main():
         print(f"  server:  {account.server}")
         print(f"  demo:    {account.trade_mode == 0}")
         print(f"  balance: {account.balance:.2f} {account.currency}")
+        print(f"  position mode: {MARGIN_MODES.get(account.margin_mode, account.margin_mode)}")
 
         symbol, candidates = data_mt5.resolve_symbol(mt5_cfg["symbol"])
         print("\n== Gold symbol")
