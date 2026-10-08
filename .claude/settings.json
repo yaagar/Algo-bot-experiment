@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(./data/**)",
+      "Read(./.venv/**)",
+      "Read(./archive/**)",
+      "Read(./results/**/*.csv)",
+      "Read(./results/**/*.parquet)"
+    ]
+  }
+}

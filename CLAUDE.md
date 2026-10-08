@@ -1,28 +1,31 @@
 # Gold Bot Experiment — instructions for Claude Code
 
-Three specs. Read the active one before doing anything; it is the source of truth.
+- **Active spec: `docs/EXPERIMENT_3_SPEC.md`** (source of truth; §refs mean this spec). Read the section you need.
+- **`docs/LESSONS.md`**: Exp 1–3 conclusions, rules still in force, archive pointers. Code map: `docs/CODE_GUIDE.md`.
+- 2010–2021 is reserved: only via `src/data_access.py`, which refuses it without Yash's dated confirmation.
 
-- **Active: `docs/EXPERIMENT_3_SPEC.md`** — Experiment 3, multi-market daily Donchian 55/20 trend-following. Its phases (E3-1, E3-2) are the current work. It reuses Experiment 2's S3 code, engine, cost/swap, FTMO-rule modules and leak test.
-- **Finished: `docs/EXPERIMENT_2_SPEC.md`** — Experiment 2, intraday gold strategy comparison (S1–S5 and combination). No strategy had an edge.
-- **Finished: `docs/EXPERIMENT_SPEC.md`** — Experiment 1 (Asian breakout + Claude filter). Everything later specs don't restate (data pipeline, clock conversion, costs, FTMO simulation, news calendar, leak tests, data lock) is inherited from it unchanged. Its pending Phase 4c is folded into the single future 2010–2021 run.
-- 2010–2021 is reserved: data goes only through `src/data_access.py`, which refuses it without Yash's dated confirmation.
-
-Section references below (e.g. §10, §12) refer to whichever spec is active.
+## Core modules (src/)
+- Data: `data_access` (data lock), `data_mt5` (read-only MT5), `pull_prices`, `process_prices`, `spread_model`, `timeutils`, `verify_server_time`, `calendar_events`
+- Engine/rules: `config`, `pnl`, `ftmo_rules`, `metrics`, `leak_test`, `controls`, `backtest`, `strategy_asian`
+- `exp2/`: engine, market, strategies (S3 reused by Exp 3), c1, combo, regime, runners
+- `exp3/`: markets, pull_data, fx_splice, data, evaluate, sanity, runners
 
 ## Ground rules
-- **The spec is locked.** Never change a rule, number, data period or pass/fail criterion. If something seems wrong, missing or impossible, stop and ask Yash. Never "fix" a result by changing rules.
-- **No optimisation.** Do not tune parameters to improve results. Robustness nudges in spec §10 are reported, never selected.
-- **No look-ahead.** Every decision may only use data available at that moment. Keep the future-scramble test passing at all times.
-- **Work in phases** (spec §12). At the end of each phase, stop and give Yash a short summary: what was built, what was checked, what he needs to do or decide next.
-- **Explain for Yash:** plain-English behaviour first, logic second, non-obvious choices third. No file-by-file changelogs. He reads Python but is not a full-time coder, so keep code simple and well-named over clever.
-- **Never place trades.** This project only reads market data from MT5. Do not call `order_send` or any trading function.
-- **Never put credentials in code or git.** MT5 login comes from the already-logged-in terminal.
-- Data files (`data/`) stay out of git.
+- Spec is locked: never change a rule, number, period or pass/fail criterion. If something seems wrong, stop and ask Yash.
+- No optimisation; no look-ahead (keep the scramble/leak tests passing).
+- Work in phases; at each phase end give Yash a short summary: built, checked, what he must decide.
+- Explain for Yash: plain-English behaviour first, logic second, non-obvious choices third. Simple, well-named code.
+- Never place trades (no `order_send`). Never put credentials in code or git. `data/` stays out of git.
 
-## Claude filter calls (Bot B)
-- Only via `src/claude_filter.py`, following spec §6.4 exactly: empty sandbox folder, all tools disabled, pinned model, JSON schema, caching, default-to-TAKE on failure.
-- Prompts in `prompts/` are locked once Yash approves them.
+## Working rules (token budget)
+- Don't read `archive/`, `data/`, `.venv/`, or results CSV/parquet files unless a task needs a specific one.
+- Use targeted reads (line ranges) and Grep instead of reading whole files.
+- Make small edits instead of rewriting whole files.
+- Run tests with `.venv/Scripts/python -m pytest -q`; truncate long command output (`| tail -n 20`).
+- Never print whole DataFrames: use `.head()`, `.shape`, or summaries.
+- Don't leave scratch scripts in the repo; use the session scratchpad.
+- Future experiments reuse one config-driven runner, not a new runner script per phase.
+- Keep reports short, tables over prose.
 
 ## Environment
-- Windows, VS Code, Python 3.11+ in a `.venv`.
-- MT5 terminal must be running and logged in for data pulls.
+- Windows, VS Code, Python in `.venv`. MT5 terminal must be running and logged in for data pulls.
