@@ -117,7 +117,7 @@ def pull_day(day):
         f.write(json.dumps({"_meta": {"day_utc": f"{day:%Y-%m-%d}", "missing_slots": missing,
                                       "pulled_at_utc": datetime.now(timezone.utc).isoformat()}}) + "\n")
         for rec in records:
-            f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+            f.write(json.dumps(rec) + "\n")   # ASCII-escaped: titles can contain Unicode line separators
     tmp.replace(path)
     log(f"{day:%Y-%m-%d}  {len(records):5} headlines  ({len(missing)} missing 15-min files)")
 

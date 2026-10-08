@@ -55,9 +55,12 @@ Plot: `server_time_nfp.png` (35 summer, 20 winter NFP days).
 
 ## 5. Headlines (GDELT, Bot B)
 
-- **Primary: GDELT raw 15-minute GKG files** (kept permanently, so no aging-out). Title match on the five spec topics, English sources, one file per UTC day in `data/raw/gdelt_gkg/`. ~150–600 matching headlines per day; no missing 15-min files so far.
-- Backup: DOC API downloader — still HTTP 429 on every request from this network.
-- Coverage: see the final count in the Phase 2 summary.
+- **Primary: GDELT raw 15-minute GKG files** (kept permanently, so no aging-out). Title match on the five spec topics, English sources, one file per UTC day in `data/raw/gdelt_gkg/`.
+- **Coverage: 2026-07-01 → 2026-10-07, all 99 days, 9,504 / 9,504 fifteen-minute files, 0 missing.**
+- **61,769 headlines** (per day: min 154, median 590, max 2,093). By topic: gold 34,890 · inflation 23,956 · Federal Reserve 2,598 · US dollar 1,403 · geopolitical conflict 15.
+- **Noise:** the "gold" topic also catches non-market titles (place names like "Gold Hill", products, "Gold Eagle" policy names); "inflation" includes other countries. Not filtered — flagged for Phase 5 prompt design.
+- Files are ASCII-escaped JSON lines (some titles contain Unicode line separators).
+- Backup DOC API downloader: still HTTP 429 from this network; stopped once GKG completed. Code kept.
 
 ## 6. P&L formula check
 
