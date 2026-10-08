@@ -1,0 +1,77 @@
+# Experiment 4 — every number here mirrors docs/EXPERIMENT_4_SPEC.md v1.1 (LOCKED).
+# Do not change a value without an approved, dated Change Log entry in the spec.
+# Times are local wall-clock "HH:MM" in each market's timezone.
+
+periods:                                   # spec §6 (end = exclusive UTC instant)
+  development: {start: "2022-01-01", end: "2026-01-01"}
+  recent_info: {start: "2026-01-01", end: null}         # null = latest data
+
+markets:                                   # spec §2 + Change Log v1.1 items 1, 4, 5
+  Gold:
+    symbol: XAUUSD.sim
+    tz: Europe/London
+    h1_source: broker                      # broker H1 bars (on the hour)
+    m1_file: XAUUSD.sim_M1.parquet         # data/processed/
+    h1_file: XAUUSD.sim_H1.parquet
+    day_start: "00:00"                     # trading day = London date
+    range: {start: "00:00", end: "07:00"}
+    window: {start: "07:00", end: "16:00"} # half-open: entry decisions at H1 closes 07:00-15:00
+    flat_by: "20:00"
+    b_from: "20:00"                        # previous session's flat time
+    b_to: "08:00"                          # end of the first hour of the window
+    contract_size: 100.0
+    point: 0.001
+    commission_pct_per_side: 0.0007
+  US500:
+    symbol: US500.sim
+    tz: America/New_York
+    h1_source: m1_offset_30                # H1 bars built from M1 at :30 New York
+    m1_file: exp4/US500.sim_M1.parquet
+    h1_file: null
+    day_start: "18:00"                     # previous evening; day labelled by the NY date it ends on
+    range: {start: "18:00", end: "09:30"}
+    window: {start: "09:30", end: "15:00"}
+    flat_by: "15:55"
+    b_from: "16:00"
+    b_to: "10:30"
+    contract_size: 1.0
+    point: 0.1
+    commission_pct_per_side: 0.0
+
+signals:                                   # spec §3
+  sigma_days: 60
+  sigma_mult: 2.0
+  c_sma: 20                                # H4 closes
+  c_atr: 20                                # H4, Wilder
+  d_sma: 20                                # H1 closes
+  d_atr: 14                                # H1, Wilder
+
+gates:                                     # spec §4
+  efficiency_days: 10
+  efficiency_trend: 0.30
+  shock_mult: 3.0
+  shock_days: 60
+
+trading:                                   # spec §2, §5
+  entry_threshold: 0.30
+  exit_threshold: 0.10
+  full_size_forecast: 0.60
+  stop_atr: 1.5                            # x ATR(14, H1)
+  max_entries_per_day: 3
+  news_blackout_min: 5
+  ftmo_flag_min: 2
+  risk_usd: 50.0                           # R; results are reported in R (fractional lots)
+
+# Pre-declared variants (spec §7). Each overrides keys of the main configuration.
+# E4-1 runs only "main". Robustness and ablation run in E4-2 and are reported, never selected.
+variants:
+  main: {}
+  entry_0.20: {trading: {entry_threshold: 0.20}}
+  entry_0.40: {trading: {entry_threshold: 0.40}}
+  stop_1.0: {trading: {stop_atr: 1.0}}
+  stop_2.0: {trading: {stop_atr: 2.0}}
+  only_A: {use_signals: [A]}
+  only_B: {use_signals: [B]}
+  only_C: {use_signals: [C]}
+  only_D: {use_signals: [D]}
+  no_gates: {use_gates: false}

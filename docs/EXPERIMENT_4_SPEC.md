@@ -140,3 +140,9 @@ Signal B's raw value is fixed for the day once set. ATRs use Wilder smoothing.
 
 ## Change Log
 - v1.0 — 2026-10-08 — initial lock.
+- v1.1 — 2026-10-08 — clarifications approved by Yash before any Experiment 4 result (no rule or number changed):
+  1. **US500 H1 bars** are built from M1 starting at :30 New York (09:30–10:30, …), so the range end (09:30) and Signal B's time (10:30) are bar closes. Entry decisions: H1 closes 09:30–14:30 NY. Gold uses the broker's H1 bars.
+  2. **σ_raw samples:** every H1 close at which the signal is active in the previous 60 trading days (A: from range end to flat-by, zeros inside the range included; B: one value per day; C, D: every H1 close of the trading day). Fewer than 60 trading days of history → score 0.
+  3. **Shock gate baseline:** median, over the previous 60 trading days, of each day's average H1 range from day start up to the same clock time.
+  4. **Trading day** starts at the range start: gold 00:00 London (London date); US500 18:00 New York the previous evening (New York date). Used for "today", the 3-entry cap, the shock gate and the 60-day windows.
+  5. **Gold window** is half-open [07:00, 16:00) London: entry decisions at H1 closes 07:00–15:00.

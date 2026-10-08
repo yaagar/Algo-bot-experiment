@@ -1,6 +1,6 @@
 # Code Guide (plain English)
 
-Map of the code still in `src/`. Rules live in `docs/EXPERIMENT_3_SPEC.md`; lessons and archive pointers in `docs/LESSONS.md`.
+Map of the code still in `src/`. Rules live in `docs/EXPERIMENT_4_SPEC.md`; lessons and archive pointers in `docs/LESSONS.md`.
 
 ## How to run
 MT5 (logged in to the FTMO trial) must be open for anything marked *MT5*.
@@ -51,3 +51,13 @@ MT5 (logged in to the FTMO trial) must be open for anything marked *MT5*.
 | `evaluate.py` | R statistics, C1, cost stresses, FTMO Swing simulation with real lots. |
 | `sanity.py` | Independent recomputation of signals and trades (shares no code). |
 | `run_e3_1.py` / `run_e3_2.py` | Build-and-verify; run and report -> `results/exp3/`. |
+
+## Experiment 4 (`src/exp4/`, numbers in `config/exp4.yaml`)
+| Module | What it does |
+|---|---|
+| `pull_data.py` | MT5: US500 M1 from 2022 (spreads estimated as for gold). |
+| `data.py` | Config + variants, market clocks/trading days, H1 (gold broker; US500 :30 from M1) and H4 bars. |
+| `signals.py` | Signals A-D, σ scaling, regime and shock gates, forecast F per H1 bar. |
+| `system.py` | Entry/exit/size rules on the Exp 2 engine (`E4Engine` adds forecast sizing, no fill after flat-by). |
+| `rebuild.py` | Independent rebuild of signals, gates and F (no shared code); must match every bar. |
+| `run.py` | The one runner: `python -m src.exp4.run e4_1` (later phases add steps here). |
