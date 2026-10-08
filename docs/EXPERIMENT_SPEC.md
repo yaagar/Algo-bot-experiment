@@ -1,4 +1,4 @@
-# Gold Bot Experiment — Spec v1.1 (LOCKED)
+# Gold Bot Experiment — Spec v1.2 (LOCKED)
 
 Owner: Yash. Built by: Claude Code. Written: 2026-10-07.
 
@@ -114,14 +114,16 @@ If the broker's history doesn't reach 2022, use the earliest available and repor
 **Price:** MetaTrader5 Python package from Yash's MT5 terminal. Gold symbol name varies by broker (`XAUUSD`, `XAUUSD.`, `GOLD`…): detect it.
 - Pull M1 (as far back as available), M15 and H1, including the `spread` column. Save to `data/raw/` as Parquet with a metadata file (symbol, broker, server, contract size, volume step, min volume, pull timestamp).
 - **Broker server time:** MT5 timestamps are server time with no timezone. Determine the offset (usually UTC+2 winter / UTC+3 summer) and verify it: plot average absolute M1 return around US NFP release times (08:30 New York) on at least 4 summer and 4 winter dates; the spike must line up after conversion. Store all data internally in UTC.
-- **Costs:** spread from data; commission = **% of notional, charged per side** (on entry and again on exit), where notional = lots × contract size × fill price. Base case **0.0007% per side** (observed on Yash's FTMO trial account); stress case **0.0025% per side** (FTMO US published rate). Values in `config/settings.yaml`. Swap = 0 (no overnight).
+- **Spread:** from the data where the broker recorded it (from 2025-12-17). Before that, and on any bar with spread 0, use the **75th-percentile real spread for the same London hour, measured on 2026 data**, flagged as *estimated* on every bar and in every report. The 1.5× spread stress applies on top.
+- **Costs:** spread as above; commission = **% of notional, charged per side** (on entry and again on exit), where notional = lots × contract size × fill price. Base case **0.0007% per side** (observed on Yash's FTMO trial account); stress case **0.0025% per side** (FTMO US published rate). Values in `config/settings.yaml`. Swap = 0 (no overnight).
 
-**Economic calendar (USD, high impact):**
-- 2022 → Apr 2025: the public Forex Factory calendar dataset on Hugging Face (2007–2025).
-- After Apr 2025: official release schedules (Fed FOMC calendar, BLS for CPI/NFP, BEA for GDP/PCE). Respect each site's terms; no aggressive scraping.
-- Store event time in UTC, plus impact and, for released events, actual/forecast.
+**Economic calendar (USD, high impact) — one fixed event list for the whole period:**
+- Events: FOMC decision (14:00 NY) + press conference (14:30), FOMC minutes (14:00), NFP, CPI, PPI, PCE, GDP, retail sales (08:30 NY), ISM manufacturing, ISM services (10:00 NY).
+- Sources: Fed FOMC calendar page; FRED API release dates for NFP/CPI/PPI/PCE/GDP/retail sales (revision-only days removed); ISM rule-based — manufacturing 1st business day, services 3rd business day (one business day later in January, as observed 2022–2025). BEA's schedule overrides the 08:30 time where it publishes another. Respect each site's terms; no aggressive scraping.
+- The Forex Factory dataset (Hugging Face) is used only to cross-check dates/times for 2022 → Apr 2025.
+- Store event time in UTC.
 
-**Headlines (only needed for B):** GDELT 2.0 DOC API (free, no key). **Urgent:** the DOC API only searches roughly the last ~3 months, so pull and save everything from 2026-07-01 onward **first**, before it ages out. Queries: gold, Federal Reserve, US dollar, inflation, geopolitical conflict. Save the raw JSON with GDELT's first-seen timestamp. Use the first-seen time as the "available at" time.
+**Headlines (only needed for B):** primary source = GDELT 2.0 raw 15-minute GKG files (data.gdeltproject.org, kept permanently). Keep English-source articles whose **page title** matches a topic: gold, "Federal Reserve", "US dollar", inflation, "geopolitical conflict" (multi-word topics as exact phrases). "Available at" time = the GKG file's 15-minute timestamp (GDELT first-seen). Backup: GDELT 2.0 DOC API (English sources, same queries, ≥ 6 s between requests). Save raw records.
 
 ## 9. Leak prevention (must pass before results count)
 
@@ -191,3 +193,4 @@ Bot #2: box rule (previous-day high/low wick rejection). Demo forward test of th
 ## Change Log
 - v1.0 — 2026-10-07 — initial lock.
 - v1.1 — 2026-10-07 — commission changed from flat per-lot to % of notional per side (base 0.0007% observed on the FTMO trial; stress 0.0025% per FTMO US published rate). Also noted that FTMO US uses netting mode (one position per symbol). Approved by Yash before any backtest result was seen.
+- v1.2 — 2026-10-08 — (1) Spread: broker has no spread data before 2025-12-17; those bars use the 75th-percentile 2026 real spread per London hour, labelled estimated; 1.5× stress kept. (2) Calendar: one fixed USD event list for the whole period (FOMC decision + presser, minutes, NFP, CPI, PPI, PCE, GDP, retail sales, ISM manufacturing/services) from the Fed site, FRED release dates and an ISM business-day rule, because BLS blocks scripted access and the Forex Factory set ends Apr 2025 with timezone and missing-time faults. (3) Headlines: GDELT raw GKG files become the primary source (title match, English) because the DOC API returned HTTP 429 to every request; DOC API kept as backup. Approved by Yash before any backtest result was seen.

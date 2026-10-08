@@ -19,7 +19,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from src.calendar_events import load_forex_factory_usd_high
+from src.calendar_events import OUT as CALENDAR_PATH
 from src.config import PROJECT_ROOT
 from src.timeutils import NEW_YORK, server_to_utc
 
@@ -69,8 +69,8 @@ def daily_break_check(m1):
 
 
 def nfp_check(m1):
-    nfp_days = load_forex_factory_usd_high()
-    nfp_days = nfp_days[nfp_days.event == "Non-Farm Employment Change"].date.drop_duplicates()
+    cal = pd.read_parquet(CALENDAR_PATH)   # official NFP dates (FRED), 2022 -> now
+    nfp_days = cal[(cal.event == "NFP") & (cal.time_utc < pd.Timestamp.now(tz="UTC"))].date.drop_duplicates()
     nfp_days = [d for d in nfp_days if pd.Timestamp(d) >= FROM]
 
     rows = []
@@ -121,7 +121,7 @@ def nfp_plot(m1, table):
     ax.axvline(0, color="grey", ls="--", lw=1)
     ax.set_xlabel("minutes from 08:30 New York (after converting server time -> UTC -> New York)")
     ax.set_ylabel("average |1-min return| (basis points)")
-    ax.set_title("Gold M1 around US NFP releases, 2022-2025")
+    ax.set_title("Gold M1 around US NFP releases, 2022-2026")
     ax.legend()
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     path = OUT_DIR / "server_time_nfp.png"

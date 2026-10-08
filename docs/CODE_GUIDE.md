@@ -24,9 +24,11 @@ MT5 (OANDA MetaTrader 5, logged in to the FTMO trial) must be open for anything 
 .venv\Scripts\python -m src.check_mt5           # MT5: connection + gold symbol info
 .venv\Scripts\python -m src.pull_prices         # MT5: download all M1/M15/H1 bars
 .venv\Scripts\python -m src.process_prices      # convert bars to UTC
+.venv\Scripts\python -m src.spread_model        # fill estimated spreads (run after process_prices)
 .venv\Scripts\python -m src.verify_server_time  # prove the server-clock rule (+ plot)
-.venv\Scripts\python -m src.calendar_events     # build the USD news calendar
-.venv\Scripts\python -m src.headlines           # download GDELT headlines (slow, resumable)
+.venv\Scripts\python -m src.calendar_events     # build the USD news calendar (needs FRED key in .env)
+.venv\Scripts\python -m src.headlines_gkg       # headlines from GDELT raw files (main source, ~1 h)
+.venv\Scripts\python -m src.headlines           # headlines from GDELT DOC API (backup)
 .venv\Scripts\python -m src.check_pnl           # MT5: compare our P&L maths with real trades
 .venv\Scripts\python -m pytest                  # run all tests
 ```
@@ -44,15 +46,22 @@ reads its specs, and `pull_rates()` downloads bars one month at a time.
 **`pull_prices.py`** → `data/raw/XAUUSD.sim_{M1,M15,H1}.parquet` + metadata JSON.
 **`process_prices.py`** → same bars with a `time_utc` column in `data/processed/`.
 
+**`spread_model.py`** — the broker has no spread before Dec 2025. For those bars it uses the
+75th-percentile 2026 spread for the same London hour, and marks the bar `spread_estimated`.
+
 **`verify_server_time.py`** — proves the clock rule two ways: the daily trading break
 always ends at 18:00 New York, and the NFP price spike always lands on 08:30 New York.
 
-**`calendar_events.py`** — builds the list of US high-impact news times. Uses the
-Forex Factory file up to April 2025 (after fixing its timezone label and filling
-missing times), then the Fed and BEA official schedules.
+**`calendar_events.py`** — builds the fixed list of US news times for the whole period:
+FOMC (Fed website), NFP/CPI/PPI/PCE/GDP/retail sales (FRED release dates, revision-only
+days removed), ISM (business-day rule). Cross-checks everything against Forex Factory.
+The FRED key is read from `.env` (never in code or git).
 
-**`headlines.py`** — downloads news headlines from GDELT, oldest days first, one file
-per topic per day, so it can stop and resume. Waits politely when GDELT says "too many requests".
+**`headlines_gkg.py`** — main headline source. Streams GDELT's 15-minute raw files, keeps
+articles whose title mentions gold / Federal Reserve / US dollar / inflation / geopolitical
+conflict, one file per day (resumable). The file's timestamp = when the headline became available.
+
+**`headlines.py`** — backup: GDELT DOC API, one request per 6 s, backs off on "too many requests".
 
 **`pnl.py`** — profit/loss of a trade and its commission (used by the backtester later).
 **`check_pnl.py`** — reads your closed demo trades and checks `pnl.py` gives the same numbers as the broker.
@@ -60,10 +69,10 @@ per topic per day, so it can stop and resume. Waits politely when GDELT says "to
 ## Flow so far
 
 ```
-MT5 ──pull_prices──> raw bars (server time) ──process_prices──> UTC bars
+MT5 ──pull_prices──> raw bars (server time) ──process_prices──> UTC bars ──spread_model──> + spread_used
                                    timeutils (NY+7h) ┘   verified by verify_server_time
-Forex Factory + Fed + BEA ──calendar_events──> calendar_usd_high.parquet (UTC)
-GDELT ──headlines──> data/raw/gdelt/<topic>/<day>.json
+Fed + FRED + ISM rule (+ BEA times) ──calendar_events──> calendar_usd_high.parquet (UTC)
+GDELT raw GKG files ──headlines_gkg──> data/raw/gdelt_gkg/<day>.jsonl
 ```
 
 ## Coming next (Phase 3)
