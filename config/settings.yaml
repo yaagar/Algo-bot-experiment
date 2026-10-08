@@ -54,7 +54,13 @@ controls:                      # spec §2
   c1_random_entry_seeds: 200
   c2_random_veto_seeds: 1000
 
-claude:                        # spec §6.4 — filled in Phase 5
-  pinned_model: null
+claude:                        # spec §6.4
+  # Training-data and reliable-knowledge cutoff: Jun 2026 (platform.claude.com models overview, checked 2026-10-08)
+  pinned_model: claude-opus-5-5
+  effort: medium               # the model's API default, set explicitly so it can't drift
+  # Claude Code CLI bundled with the VS Code extension (the PATH copy, 2.1.212, can't run this model)
+  cli_path: 'C:\Users\yasha\.vscode\extensions\anthropic.claude-code-2.1.288-win32-x64\resources\native-binary\claude.exe'
+  cli_version: "2.1.288"
+  sandbox_dir: '%TEMP%\gold_claude_sandbox'   # empty folder outside the project
   call_timeout_seconds: 60
   consistency_recheck_fraction: 0.20
