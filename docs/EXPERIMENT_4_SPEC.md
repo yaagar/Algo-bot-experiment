@@ -146,3 +146,8 @@ Signal B's raw value is fixed for the day once set. ATRs use Wilder smoothing.
   3. **Shock gate baseline:** median, over the previous 60 trading days, of each day's average H1 range from day start up to the same clock time.
   4. **Trading day** starts at the range start: gold 00:00 London (London date); US500 18:00 New York the previous evening (New York date). Used for "today", the 3-entry cap, the shock gate and the 60-day windows.
   5. **Gold window** is half-open [07:00, 16:00) London: entry decisions at H1 closes 07:00–15:00.
+- v1.2 — 2026-10-08 — Decided by Yash before any Experiment 4 result exists.
+  (a) §5 Forecast: F = average of the signals the regime gate allows. Trending: F = (A + B + C) / 3. Ranging: F = D. Signals not yet active that day still count as 0. Reason: with /4, ranging days could never reach the 0.30 entry threshold (D max 0.25), so D could never trade. All thresholds unchanged.
+  (b) §7 Ablation "each signal alone": F = that signal (divide by 1), regime and shock gates still applied.
+  (c) §7 "No gates": regime gate and shock gate both off; F = (A + B + C + D) / 4. News blackout and trading windows stay.
+  (d) §8 slippage stress: +1 tick = symbol_info trade_tick_size, applied against the trader on every fill (entry, stop, signal exit, time exit).
