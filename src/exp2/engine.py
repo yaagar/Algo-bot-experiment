@@ -171,6 +171,12 @@ class Engine:
                 return int(m.t[k]), float(price), "friday close" if friday_first else "time"
         return None
 
+    def end_of_data(self, pos):
+        """Data ends with a trade open: close at the last M1 close (shorts pay the spread)."""
+        m = self.m1
+        price = m.c[-1] if pos.order.direction > 0 else m.c[-1] + m.s[-1] * self.costs.spread_mult
+        return int(m.t[-1]), float(price), "end of data"
+
     def exit_at_open(self, pos, t_ns, bid, spread):
         price = bid if pos.order.direction > 0 else bid + spread * self.costs.spread_mult
         return t_ns, float(price), "exit signal"
@@ -253,8 +259,7 @@ class Engine:
                     res.decisions.append((int(t_close[i]), "signal", (order.direction,), int(t_close[i])))
                     pending = order
         if pos is not None:                               # data ended with a trade open
-            ex = self.walk(pos, int(pos.entry_ns), int(self.m1.t[-1]) + 1) or \
-                (int(self.m1.t[-1]), float(self.m1.c[-1]), "end of data")
+            ex = self.walk(pos, int(pos.entry_ns), int(self.m1.t[-1]) + 1) or self.end_of_data(pos)
             self.close(pos, *ex, res)
         for d in getattr(strategy, "decisions", []):
             res.decisions.append(d)
