@@ -145,3 +145,4 @@ Yash's goal is ≥ $100/month average, ≥ 4 of 6 months profitable, and no brea
 
 ## Change Log
 - v1.0 — 2026-10-08 — initial lock. Experiment 1's pending Phase 4c is folded into the future single 2010–2021 run (§9).
+- v1.0 clarifications — 2026-10-08 — confirmed by Yash before any Experiment 2 result: (1) each strategy holds at most one position at a time in its standalone run; a signal while in a trade is skipped and counted. (2) C1 exit: random direction, same stop distance, otherwise closed at the real trade's exit time; no profit target. (3) Swap: the broker reports swap mode 5 (annual interest % of the current price), long −5.66%, short −3.02%, and an invalid triple-swap day (7); per Yash, the Wednesday-night rollover charges 3 nights. Per-night swap = price × 100 oz × lots × rate ÷ 360, applied to all history as an estimate.

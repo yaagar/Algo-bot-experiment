@@ -64,3 +64,13 @@ claude:                        # spec §6.4
   sandbox_dir: '%TEMP%\gold_claude_sandbox'   # empty folder outside the project
   call_timeout_seconds: 60
   consistency_recheck_fraction: 0.20
+
+exp2:                          # docs/EXPERIMENT_2_SPEC.md
+  risk_per_trade_usd: 50       # fractional size: lots = risk / (stop distance x contract size); results in R
+  swap:                        # read from MT5 symbol_info 2026-10-08; applied to all history as an ESTIMATE
+    mode: 5                    # annual interest % of current price
+    long_pct_per_year: -5.66
+    short_pct_per_year: -3.02
+    days_per_year: 360
+    triple_night: Wednesday    # broker field read 7 (invalid); Wednesday per Yash (spec v1.0 clarification 3)
+  c1_seeds: 200
