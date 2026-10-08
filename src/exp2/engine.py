@@ -224,6 +224,9 @@ class Engine:
         rate = (self.swap.long_pct if pos.order.direction > 0 else self.swap.short_pct) / 100 / self.swap.days_per_year
         total, nights, day = 0.0, 0, first
         while day < last:                    # one rollover per broker day boundary crossed
+            if day.weekday() >= 5:           # Saturday/Sunday broker days: market shut, no rollover (the
+                day += timedelta(days=1)     # triple day already pays for the weekend). Only matters when
+                continue                     # a position is held over a weekend (Experiment 3).
             mult = 3 if day.weekday() == self.swap.triple_weekday else 1
             # price at the rollover = last M1 close before that server day ends (17:00 New York)
             roll = datetime.combine(day, time(17), tzinfo=NY_TZ)

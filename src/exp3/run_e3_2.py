@@ -85,6 +85,10 @@ def main():
     d1s = {sym: frames[sym][0] for sym in frames}
     ftmo = {risk: ftmo_sim(trades, specs, d1s, risk) for risk in (25.0, 50.0)}
 
+    # cost breakdown in R (risk per trade = net / net R; spread is inside the fill prices, so inside gross)
+    risk_q = port.gross_usd / port.gross_r
+    swap_r, comm_r = float((port.swap_usd / risk_q).sum()), float((-port.commission_usd / risk_q).sum())
+
     # 6. verdict
     years_pos = sum(ps["per_year"].get(y, 0.0) > 0 for y in FULL_YEARS)
     edge = {"Expectancy >= +0.10R": ps["expectancy"] >= 0.10,
@@ -109,6 +113,8 @@ def main():
          f"One rule (Turtle System 2 on daily bars) run on {len(specs)} markets, 2022-01 to 2026-09, every trade risking "
          f"the same 1R. The portfolio made **{ps['trades']} trades, {fmt_r(ps['expectancy'])}R per trade, "
          f"{fmt_r(ps['total_r'])}R in total**, with a worst drawdown of {ps['max_dd_r']:.1f}R. "
+         f"Before commission and swap (after spread) it made {fmt_r(float(port.gross_r.sum()))}R; commission cost "
+         f"{-comm_r:.1f}R and swap a net {-swap_r:.1f}R. "
          f"It beat {beats:.0%} of 200 random-direction runs. "
          f"**Verdict (§6): {'PASS (provisional — needs a paper forward test)' if overall else 'FAIL'}** — "
          f"edge {'passes' if edge_pass else 'fails'}, diversification {'works' if divers else 'does not work'}, "
@@ -125,7 +131,7 @@ def main():
          + f" | {yes(edge['Positive under each stress'])} |",
          f"| Diversification: portfolio max DD < average single-market max DD | {ps['max_dd_r']:.1f}R vs {avg_single_dd:.1f}R | {yes(divers)} |"]
     for risk, f in ftmo.items():
-        L.append(f"| Tradeable at {risk / 100:.2%} risk | " + "; ".join(f"{k}: {'ok' if v else 'fails'}" for k, v in trade_ok[risk].items())
+        L.append(f"| Tradeable at {risk / 10_000:.2%} risk | " + "; ".join(f"{k}: {'ok' if v else 'fails'}" for k, v in trade_ok[risk].items())
                  + f" | {yes(all(trade_ok[risk].values()))} |")
 
     L += ["", "## Portfolio vs single markets (R, base costs)", "",
@@ -146,7 +152,7 @@ def main():
     for risk, f in ftmo.items():
         breach = ", ".join(x for x in (f"daily 5% on {f['daily_breach']}" if f["daily_breach"] else "",
                                        f"total 10% on {f['total_breach']}" if f["total_breach"] else "") if x) or "none"
-        L.append(f"| ${risk:.0f} ({risk / 100:.2%}) | {f['skipped_min_lot']} / {f['signals']} ({f['pct_skipped']:.0%}) | "
+        L.append(f"| ${risk:.0f} ({risk / 10_000:.2%}) | {f['skipped_min_lot']} / {f['signals']} ({f['pct_skipped']:.0%}) | "
                  f"${f['avg_month']:+.0f} | {f['pct_months_profitable']:.0%} | {f['min_profitable_in_6m']} / 6 | "
                  f"${f['worst_month']:+.0f} | ${f['max_dd_usd']:.0f} | ${f['worst_day_loss']:.0f} | {breach} | "
                  f"{f['max_margin_to_equity']:.2f} |")
@@ -167,6 +173,9 @@ def main():
           "- '>= 4 of every 6 months' = every rolling 6-month window (as in Experiment 1).",
           "- Months and years are counted by trade exit (UTC). FTMO days = broker days (New York 17:00), "
           "not Prague midnight (1 hour apart).",
+          "- Swap counts 5 rollovers per week (none on Saturday/Sunday broker days; the triple day covers the weekend). "
+          "The reused Experiment 2 engine also charged weekend days; fixed in E3-2 (Experiment 2 never held over a weekend, "
+          "its results are unchanged).",
           "- Trades: `trades.csv`. C1 totals by seed: `c1_total_r_by_seed.csv`."]
     RESULTS.mkdir(parents=True, exist_ok=True)
     out = port.copy()

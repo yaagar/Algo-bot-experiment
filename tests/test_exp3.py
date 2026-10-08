@@ -95,3 +95,12 @@ def test_ftmo_sim_scales_lots_marks_daily_low_and_skips_min_lot():
     assert abs(f["worst_day_loss"] - 50.0) < 1e-9                      # day 2 low 80: (80-100) x 2.5
     tiny = ftmo_sim({"X": pd.DataFrame([_trade(0, 3, 1.0, stop_distance=1000.0)])}, [spec], {"X": days}, 25.0)
     assert tiny["skipped_min_lot"] == 1                                # 25 / 1000 = 0.025 lots < 0.1
+
+
+def test_swap_charges_seven_nights_per_week_when_held_over_weekend():
+    eng = _engine(weekend_rule=False)
+    eng.swap = Swap(-36.0, -36.0, 360, 2)                       # 0.1% of price per night, triple Wednesday
+    start = pd.Timestamp("2024-01-08 12:00", tz="UTC").value      # Monday
+    pos = eng.open_position(Order(1, start, lambda p, s: p - 10), start, 100.0, 0.0, Result())
+    swap, nights = eng.swap_for(pos, start + 7 * 24 * NS_H)       # following Monday
+    assert nights == 7                                            # Mon, Tue, Wed x3, Thu, Fri; no Sat/Sun
