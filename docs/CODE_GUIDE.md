@@ -102,5 +102,19 @@ GDELT raw GKG files ──headlines_gkg──> data/raw/gdelt_gkg/<day>.jsonl
 UTC bars + calendar ──backtest (strategy_asian / controls)──> trades ──metrics + ftmo_rules──> results/phase3/
 ```
 
-## Coming next (Phase 4c)
-One-time confirmation on 2010–2021 of the filter(s) Yash adopts, plus C1, all three cost cases.
+**`claude_filter.py`** — the only way Claude is called. Runs the Claude Code CLI (pinned
+`claude-opus-5-5`, effort medium) from an empty folder outside the project with every tool off and none of
+this PC's Claude Code settings/hooks/plugins loaded; refuses to run if a locked prompt changed; caches every
+answer by the exact input; defaults to TAKE / TRADE_DAY on error or after 60 s.
+**`claude_isolation_test.py`** — proves Claude can't fetch a web page or read a file in that setup.
+**`claude_inputs.py`** — builds what Claude sees (anonymised box-relative candles, events, filtered headlines),
+only from data available at the decision time.
+**`run_phase5.py`** — `--sample` (5 calls + cost estimate) and `--full` (morning/veto calls, A vs B vs C1 vs C2,
+20% recheck, report in `results/phase5/`). Stops after 3 failed calls in a row (e.g. Pro usage limit) so a
+re-run resumes from the cache.
+**`tf_bootstrap.py`** — bootstrap confidence interval for M15 vs H1 monthly R.
+**`run_2026_trend_info.py`**, **`run_phase4c.py`** — 2026 info-only trend comparison; Phase 4c (drafted, pending).
+
+## Coming next
+See `results/next_steps.md`: calendar extension + Phase 4c; Phase 6 paper forward test (design in
+`results/phase6_design.md`, awaiting Yash's decisions).

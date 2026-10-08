@@ -268,7 +268,10 @@ def usage_totals():
     recs = [json.loads(l) for l in open(claude_filter.LOG_PATH, encoding="utf-8")]
     keys = ("input_tokens", "cache_creation_input_tokens", "cache_read_input_tokens", "output_tokens")
     tot = {k: sum(r["usage"][k] for r in recs) for k in keys}
-    return len(recs), tot, sum(r["cost_usd"] or 0 for r in recs), sum(r["failed"] for r in recs)
+    answered = {r["key"] for r in recs if not r["failed"]}
+    # a failed attempt that was later retried successfully (e.g. usage limit) is not a default
+    never_answered = {r["key"] for r in recs if r["failed"]} - answered
+    return len(recs), tot, sum(r["cost_usd"] or 0 for r in recs), len(never_answered)
 
 
 def write_report(S, morning, ntd, veto, vetoed, entries, rechecks, flip_rate, results):
@@ -335,7 +338,7 @@ def write_report(S, morning, ntd, veto, vetoed, entries, rechecks, flip_rate, re
             L.append(f"- {r['kind']} {r.get('tf', '')} {r['date']}: {r['first']} → {r['second']}")
 
     L += ["", "## Tokens and cost", "",
-          f"Calls made: {n_calls} (failed and defaulted: {failed}). Tokens — new input {tot['input_tokens']:,}, cache write "
+          f"Call attempts: {n_calls}, including 3 refused by the Pro session limit and retried after it reset; calls that never got an answer and defaulted to TAKE/TRADE_DAY: {failed}. Tokens — new input {tot['input_tokens']:,}, cache write "
           f"{tot['cache_creation_input_tokens']:,}, cache read {tot['cache_read_input_tokens']:,}, output {tot['output_tokens']:,}; "
           f"**total {sum(tot.values()):,}**. API-equivalent cost ${cost:.2f} (billed to the Pro subscription, not an API key)."]
 

@@ -9,3 +9,6 @@ Updated 2026-10-08.
 No 2010–2021 result has been produced or looked at.
 
 Order changed by spec v1.6: Phase 5 (Claude filter on plain Bot A) runs before 4c.
+
+Phase 5 done 2026-10-08 (B not better than A in any of the 6 cases; report `results/phase5/phase5_report.md`).
+3. Phase 6 paper forward test: design proposed in `results/phase6_design.md`; needs Yash's decisions (section 7) before building.
