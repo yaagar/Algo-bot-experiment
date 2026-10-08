@@ -1,4 +1,4 @@
-# Gold Bot Experiment — Spec v1.3 (LOCKED)
+# Gold Bot Experiment — Spec v1.4 (LOCKED)
 
 Owner: Yash. Built by: Claude Code. Written: 2026-10-07.
 
@@ -44,7 +44,7 @@ Simulate these rules on every backtest and report whether/when the account would
 
 - Risk per trade: **0.5% of initial balance = $50**
 - Daily stop: stop opening trades for the day after **−1.5% ($150)** realised+floating
-- Kill switch: stop the whole strategy if equity drops **6% ($600)** from its peak
+- Kill switch: stop the whole strategy if equity drops **6% ($600)** from its peak. **From v1.4:** in backtests the official verdict also reports an information-only run without it; in live/forward trading it means **pause and review** (Yash decides whether to resume), not a permanent stop. FTMO limits (§3) remain the breach rules.
 - All trades closed same day (see §5). No overnight, no weekend holds.
 
 ## 5. Bot A — Asian Range Breakout (exact rules)
@@ -105,7 +105,11 @@ Draft both prompts in `prompts/veto_v1.md` and `prompts/morning_v1.md`. Core ins
 |---|---|---|
 | Development (bug-fixing allowed) | 2022-01-01 → 2025-12-31 | A, C1 |
 | Holdout (run ONCE, no changes after) | 2026-01-01 → 2026-09-30 | A, C1 |
-| Claude window | 2026-07-01 → latest available | A, B, C1, C2 |
+| Claude window | 2026-07-01 → latest available | best bot (A or A + filter), B, C1, C2 |
+| Filter discovery (Phase 4b, information only) | 2022-01-01 → 2025-12-31 | A, tagged by candidate filters |
+| Filter confirmation (Phase 4c, run ONCE) | 2010-01-01 → 2021-12-31 | A and A + adopted filter(s), C1 |
+
+**2010–2021 is reserved:** no code, report or person looks at results from this period until Phase 4c. Spreads there use the same 2026 estimate (§8), which overstates costs because gold was cheaper — a harsher test, not an easier one.
 
 If the broker's history doesn't reach 2022, use the earliest available and report it.
 
@@ -165,9 +169,12 @@ Because the Claude window is only ~3 months, a B pass is **provisional** until c
 1. **Setup:** project skeleton, `requirements.txt`, config, tests folder. Confirm MT5 connection and print symbol info.
 2. **Data:** pull price data, server-time verification plot, calendar, GDELT headlines (Jul 2026 → now first). Report coverage.
 3. **Backtester + Bot A + C1** on the development period. Future-scramble test. Export 10 trades for hand-checking.
-4. **Holdout run** of A + C1 (once).
-5. **Claude filter:** prompts for approval → isolation test → B + C2 on the Claude window.
-6. **Report:** `results/report.md` with all metrics, equity curves, monthly tables, pass/fail verdicts.
+4. **Holdout run** of A + C1 (once). ✅ Done — FAIL (income below $100/month), see Change Log.
+4b. **Filter discovery (information only, 2022–2025, kill switch off).** Tag every A trade with: year/quarter, long/short, box width vs the median box width of the prior 20 days, breakout direction vs the daily trend (close above/below the 20-day average of daily closes at box time), and FOMC/CPI/NFP day yes/no. Report expectancy and P&L per tag per year, plus the 2026 long/short split. Candidate filters, fixed in advance: **narrow box only**, **with-trend only**, **skip FOMC/CPI/NFP days**. A filter counts as helpful only if it improves expectancy in **≥ 3 of the 4 years**, using a median split, with no threshold search. Adopt at most two; Yash decides. 2026 results may not be used to choose filters.
+4c. **Filter confirmation (run ONCE, 2010–2021).** A and A + adopted filter(s), plus C1, under all three cost cases. If the filter doesn't improve expectancy there, it is rejected. Also report A + filter on the 2026 holdout period next to the Phase 4 numbers, labelled **information only** (2026 has already been seen, so it can't confirm or reject a filter).
+5. **Claude filter:** prompts for approval → isolation test → B + C2 on the Claude window, built on the best bot from 4c (A, or A + filter if confirmed).
+6. **Forward demo test, 8–12 weeks:** the best bot runs live on the FTMO trial account, with Claude in shadow mode (logs TAKE/VETO on every signal from live news, never changes a trade). Afterwards compare: were vetoed trades losers more often than chance?
+7. **Final report and decision:** `results/report.md` with all metrics, equity curves, monthly tables and verdicts; Yash decides on the FTMO challenge.
 
 ## 13. Project layout
 
@@ -188,7 +195,7 @@ gold-experiment/
 Python 3.11+, pandas, MetaTrader5, pyarrow, pyyaml, requests, matplotlib, pytest.
 
 ## 14. Later (not in this spec)
-Bot #2: box rule (previous-day high/low wick rejection). Demo forward test of the winner.
+Bot #2: box rule (previous-day high/low wick rejection), tested with the same process.
 
 ## Change Log
 - v1.0 — 2026-10-07 — initial lock.
@@ -196,3 +203,4 @@ Bot #2: box rule (previous-day high/low wick rejection). Demo forward test of th
 - v1.2 — 2026-10-08 — (1) Spread: broker has no spread data before 2025-12-17; those bars use the 75th-percentile 2026 real spread per London hour, labelled estimated; 1.5× stress kept. (2) Calendar: one fixed USD event list for the whole period (FOMC decision + presser, minutes, NFP, CPI, PPI, PCE, GDP, retail sales, ISM manufacturing/services) from the Fed site, FRED release dates and an ISM business-day rule, because BLS blocks scripted access and the Forex Factory set ends Apr 2025 with timezone and missing-time faults. (3) Headlines: GDELT raw GKG files become the primary source (title match, English) because the DOC API returned HTTP 429 to every request; DOC API kept as backup. Approved by Yash before any backtest result was seen.
 - v1.3 — 2026-10-08 — Phase 5 inputs locked before any results: (1) Claude only receives "gold"-topic headlines whose title also contains price, prices, ounce, bullion, futures, XAU, rally, falls, drops, rises or record (raw data kept in full); prompts tell Claude to ignore off-topic headlines. (2) "Actual vs forecast" dropped from §6.1 (official sources publish no forecasts); Claude gets event name and minutes since release. Approved by Yash before any backtest result was seen. Clarifications confirmed by Yash before Phase 3: blackout on the first breakout = no trade that day; C1 trades A's trade days with A's stop distance; 1.5× spread stress applies to fills only; the months rule is judged on every rolling 6-month window.
 - 2026-10-08 — **HOLDOUT USED.** The 2026-01-01 → 2026-09-30 holdout was run once (Phase 4, driver commit 07f351d, Phase 3 engine unchanged, kill switch included). Official §11 verdict: FAIL for M15 and H1 under all three cost cases (average month below $100). No rule, parameter or code changes may follow from it. No version change: rules unchanged.
+- v1.4 — 2026-10-08 — Plan extended after Phase 4, approved by Yash: (1) New Phase 4b (filter discovery on 2022–2025, information only, three candidate filters fixed in advance, adoption rule ≥ 3 of 4 years with median split) and Phase 4c (one-time confirmation on the previously unused 2010–2021 data). (2) Phase 5 runs on the best confirmed bot. (3) New Phase 6: 8–12 week forward demo test with Claude in shadow mode; final report becomes Phase 7. (4) Kill switch: live/forward meaning changed to pause and review; backtests also report an information-only run without it. Reason: Bot A showed a small edge over random entries but failed on income; the extension tests whether simple, pre-chosen rule filters fix that, using data nobody has seen (2010–2021) as the honest check. The holdout result was not used to choose filters.
