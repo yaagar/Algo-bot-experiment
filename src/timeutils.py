@@ -37,3 +37,8 @@ def utc_to_london(utc_times):
 
 def utc_to_new_york(utc_times):
     return pd.Series(utc_times).dt.tz_convert(NEW_YORK)
+
+
+def utc_to_server(utc_times):
+    """tz-aware UTC -> naive broker server time (New York wall clock + 7 h)."""
+    return pd.Series(utc_times).dt.tz_convert(NEW_YORK).dt.tz_localize(None) + SERVER_MINUS_NEW_YORK

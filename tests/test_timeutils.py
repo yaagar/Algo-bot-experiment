@@ -27,3 +27,9 @@ def test_follows_us_not_eu_clock_change():
 def test_dst_switch_hour_becomes_nat_not_a_wrong_time():
     # Sunday 2024-03-10 02:30 New York doesn't exist (clocks jump 02:00 -> 03:00)
     assert pd.isna(to_utc("2024-03-10 09:30"))
+
+
+def test_utc_to_server_round_trip():
+    from src.timeutils import utc_to_server
+    server = pd.Series([pd.Timestamp("2024-07-05 15:30"), pd.Timestamp("2024-12-06 15:30")])
+    assert (utc_to_server(server_to_utc(server)) == server).all()

@@ -30,6 +30,7 @@ MT5 (OANDA MetaTrader 5, logged in to the FTMO trial) must be open for anything 
 .venv\Scripts\python -m src.headlines_gkg       # headlines from GDELT raw files (main source, ~1 h)
 .venv\Scripts\python -m src.headlines           # headlines from GDELT DOC API (backup)
 .venv\Scripts\python -m src.check_pnl           # MT5: compare our P&L maths with real trades
+.venv\Scripts\python -m src.run_phase3          # Bot A + C1 + nudges + leak test, 2022-2025 (~5 min)
 .venv\Scripts\python -m pytest                  # run all tests
 ```
 
@@ -66,6 +67,23 @@ conflict, one file per day (resumable). The file's timestamp = when the headline
 **`pnl.py`** — profit/loss of a trade and its commission (used by the backtester later).
 **`check_pnl.py`** — reads your closed demo trades and checks `pnl.py` gives the same numbers as the broker.
 
+**`strategy_asian.py`** — Bot A's rules. `compute_box()` builds the 00:00-07:00 London box from
+M1 bars (or skips the day: data hole > 30 min, or box < 5x spread). `find_breakout()` checks
+candles one by one and returns the first that closes outside the box.
+
+**`backtest.py`** — the engine. Loads 2022-2025 only (refuses anything reaching the 2026 holdout),
+splits data into London days, and walks forward day by day: box -> entry -> exit -> account.
+`simulate_exit()` follows M1 bars after the fill: long stops/targets trigger on bid, short ones on
+ask (bid + spread); if one bar hits both, stop wins; 20:00 London closes anything left.
+Our kill switch (equity $600 below peak) stops the strategy for good. Every decision is logged
+with the newest data it saw.
+
+**`controls.py`** — C1: same days as A's trades, random direction at a random M15 bar,
+A's stop distance, same exits. **`ftmo_rules.py`** — FTMO daily-loss / max-loss / profit targets.
+**`metrics.py`** — spec §10 numbers and the §11 pass/fail checks.
+**`leak_test.py`** — shuffles all data after a random time T and checks no decision before T changes.
+**`run_phase3.py`** — runs it all and writes `results/phase3/`.
+
 ## Flow so far
 
 ```
@@ -73,7 +91,9 @@ MT5 ──pull_prices──> raw bars (server time) ──process_prices──> 
                                    timeutils (NY+7h) ┘   verified by verify_server_time
 Fed + FRED + ISM rule (+ BEA times) ──calendar_events──> calendar_usd_high.parquet (UTC)
 GDELT raw GKG files ──headlines_gkg──> data/raw/gdelt_gkg/<day>.jsonl
+
+UTC bars + calendar ──backtest (strategy_asian / controls)──> trades ──metrics + ftmo_rules──> results/phase3/
 ```
 
-## Coming next (Phase 3)
-Backtester + Bot A + random-entry control (C1) on the development period.
+## Coming next (Phase 4)
+One-time holdout run (2026-01-01 → 2026-09-30) of Bot A + C1, no changes afterwards.
