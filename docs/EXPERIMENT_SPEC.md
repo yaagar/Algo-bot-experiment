@@ -1,4 +1,4 @@
-# Gold Bot Experiment — Spec v1.2 (LOCKED)
+# Gold Bot Experiment — Spec v1.3 (LOCKED)
 
 Owner: Yash. Built by: Claude Code. Written: 2026-10-07.
 
@@ -18,7 +18,7 @@ Secondary question: does the simple rule bot have any real edge at all (vs. rand
 |---|---|
 | **A** | Asian Range Breakout bot (rules only), news blackout ON |
 | **B** | Same as A, plus Claude can VETO each A signal and can declare a NO-TRADE day each morning |
-| **C1 — random entry** | Same days, same risk and exits as A, but random direction at a random M15 bar in the entry window. 200 seeds |
+| **C1 — random entry** | Same days as A's trades (per timeframe), same risk and exits as A, but random direction at a random M15 bar in the entry window (outside news blackouts). Stop distance = A's stop distance that day. 200 seeds |
 | **C2 — random veto** | A's trades, with the same *fraction* of trades Claude vetoed removed at random. 1,000 seeds |
 | **Context** | Buy-and-hold gold, same period (for reference only) |
 
@@ -60,7 +60,7 @@ All times are **Europe/London local time** (handles UK daylight saving automatic
 7. **Take-profit:** 1.5 × stop distance (1.5R).
 8. **Time exit:** close any open trade at 20:00 London.
 9. **Size:** lots = floor_to_step( $50 / (stop distance in $ × contract size) ). Read contract size, volume step and minimum volume from the broker's `symbol_info`. If size < minimum volume → skip trade.
-10. **News blackout (applies to A and B equally):** no new entry from 30 min before to 30 min after any **USD high-impact** scheduled event. Open trades keep their stop/target. Count and report any exit that happens within ±2 min of such an event ("FTMO-flagged").
+10. **News blackout (applies to A and B equally):** no new entry from 30 min before to 30 min after any **USD high-impact** scheduled event. Open trades keep their stop/target. Count and report any exit that happens within ±2 min of such an event ("FTMO-flagged"). If the day's first breakout falls inside a blackout, there is no trade that day (the strategy does not wait for a later breakout).
 11. **Same-bar rule:** if one candle touches both stop and target, use M1 data to see which came first; if M1 isn't available for that bar, assume the **stop** hit first.
 
 No other filters in v1. No parameter optimisation.
@@ -78,8 +78,8 @@ Claude **cannot** create trades, change direction, size, stop or target. It only
 - Recent price action **anonymised**: last 48 H1 candles + today's M15 candles, expressed relative to the box (`(price − box_mid) / box_height`), plus ATR in the same units. **No dates, no years, no symbol name, no absolute prices.** Day of week is allowed.
 - The signal: direction, stop and target in R.
 - Scheduled events for the next 6 hours: name, impact, minutes until. **Never actual values for future events.**
-- Events already released earlier today: name, actual vs forecast.
-- News headlines from the last 12 hours, only those whose **first-seen time ≤ decision time − 15 min**, with times shown as "3h ago" (no dates).
+- Events already released earlier today: name and minutes since release only (no actual or forecast values).
+- News headlines from the last 12 hours, only those whose **first-seen time ≤ decision time − 15 min**, with times shown as "3h ago" (no dates). Headlines matched only by the "gold" topic are passed only if the title also contains one of: price, prices, ounce, bullion, futures, XAU, rally, falls, drops, rises, record. Headlines from the other topics pass unchanged. The raw data keeps everything.
 
 ### 6.2 Output (strict JSON schema)
 ```json
@@ -88,7 +88,7 @@ Claude **cannot** create trades, change direction, size, stop or target. It only
 Morning call uses `"decision": "TRADE_DAY|NO_TRADE_DAY"`.
 
 ### 6.3 Prompt
-Draft both prompts in `prompts/veto_v1.md` and `prompts/morning_v1.md`. Core instruction: *"You are a risk manager for a small gold breakout strategy. Your only job is to protect the account. VETO only when the supplied news, events or price behaviour give a specific reason this trade is unusually risky. If there is no specific reason, answer TAKE."* **Yash must approve the prompts before any B run. After approval they are locked.**
+Draft both prompts in `prompts/veto_v1.md` and `prompts/morning_v1.md`. Core instruction: *"You are a risk manager for a small gold breakout strategy. Your only job is to protect the account. VETO only when the supplied news, events or price behaviour give a specific reason this trade is unusually risky. If there is no specific reason, answer TAKE."* Both prompts also tell Claude to ignore headlines that are not about gold markets, the US economy or geopolitical risk. **Yash must approve the prompts before any B run. After approval they are locked.**
 
 ### 6.4 How Claude is called
 - Use the Claude Code CLI in print mode with the Pro subscription login: `claude -p ... --output-format json --json-schema <schema> --model <PINNED_MODEL>`. Do **not** use `--bare` (it requires an API key, not the subscription).
@@ -136,7 +136,7 @@ If the broker's history doesn't reach 2022, use the earliest available and repor
 
 ## 10. Metrics (per arm, per timeframe)
 
-Trades; win rate; average R; expectancy in $; net profit; **monthly P&L table**; % months profitable; average monthly $; worst month; worst day; max drawdown ($ and %); longest losing streak; FTMO breach (yes/no/when); number of FTMO-flagged exits; cost stress at 1.5× spread; cost stress at 0.0025% commission per side.
+Trades; win rate; average R; expectancy in $; net profit; **monthly P&L table**; % months profitable; average monthly $; worst month; worst day; max drawdown ($ and %); longest losing streak; FTMO breach (yes/no/when); number of FTMO-flagged exits; cost stress at 1.5× spread (applied to fills only; the §5.2 skip filter keeps base spread); cost stress at 0.0025% commission per side.
 
 **Robustness nudge (A only, report — do not select):** box end 06:30 / 07:30; take-profit 1.3R / 1.7R. Flag any variant where profit collapses.
 
@@ -146,7 +146,7 @@ Trades; win rate; average R; expectancy in $; net profit; **monthly P&L table**;
 
 **A strategy passes overall if ALL of:**
 - Average net profit **≥ $100 per month** on $10k
-- **≥ 4 of every 6 months** profitable (≥ 67% of months)
+- **≥ 4 of every 6 months** profitable: every rolling 6-month window must contain at least 4 profitable months
 - Never breaches FTMO max daily loss (5%) or max loss (10%)
 - Beats ≥ 90% of random-entry (C1) runs on net profit
 
@@ -194,3 +194,4 @@ Bot #2: box rule (previous-day high/low wick rejection). Demo forward test of th
 - v1.0 — 2026-10-07 — initial lock.
 - v1.1 — 2026-10-07 — commission changed from flat per-lot to % of notional per side (base 0.0007% observed on the FTMO trial; stress 0.0025% per FTMO US published rate). Also noted that FTMO US uses netting mode (one position per symbol). Approved by Yash before any backtest result was seen.
 - v1.2 — 2026-10-08 — (1) Spread: broker has no spread data before 2025-12-17; those bars use the 75th-percentile 2026 real spread per London hour, labelled estimated; 1.5× stress kept. (2) Calendar: one fixed USD event list for the whole period (FOMC decision + presser, minutes, NFP, CPI, PPI, PCE, GDP, retail sales, ISM manufacturing/services) from the Fed site, FRED release dates and an ISM business-day rule, because BLS blocks scripted access and the Forex Factory set ends Apr 2025 with timezone and missing-time faults. (3) Headlines: GDELT raw GKG files become the primary source (title match, English) because the DOC API returned HTTP 429 to every request; DOC API kept as backup. Approved by Yash before any backtest result was seen.
+- v1.3 — 2026-10-08 — Phase 5 inputs locked before any results: (1) Claude only receives "gold"-topic headlines whose title also contains price, prices, ounce, bullion, futures, XAU, rally, falls, drops, rises or record (raw data kept in full); prompts tell Claude to ignore off-topic headlines. (2) "Actual vs forecast" dropped from §6.1 (official sources publish no forecasts); Claude gets event name and minutes since release. Approved by Yash before any backtest result was seen. Clarifications confirmed by Yash before Phase 3: blackout on the first breakout = no trade that day; C1 trades A's trade days with A's stop distance; 1.5× spread stress applies to fills only; the months rule is judged on every rolling 6-month window.
