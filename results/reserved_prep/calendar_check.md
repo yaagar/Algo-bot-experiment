@@ -1,6 +1,6 @@
 # News calendar 2010-2021 (option a) — build and Forex Factory cross-check
 
-Saved: `data/processed/calendar_usd_high_2010_2021.parquet` (1368 events, 2010-01-05 to 2021-12-23). The 2022+ calendar file is unchanged.
+Saved: `data/processed/calendar_usd_high_2010_2021.parquet` (1402 events, 2010-01-04 to 2021-12-23). The 2022+ calendar file is unchanged.
 
 ## Events per year
 
@@ -15,8 +15,8 @@ Saved: `data/processed/calendar_usd_high_2010_2021.parquet` (1368 events, 2010-0
 | ISM services | 12 | 12 | 12 | 12 | 12 | 12 | 12 | 12 | 12 | 12 | 12 | 12 |
 | NFP | 12 | 12 | 12 | 12 | 12 | 12 | 12 | 12 | 12 | 12 | 12 | 12 |
 | PCE | 12 | 12 | 12 | 12 | 12 | 12 | 12 | 12 | 12 | 11 | 12 | 12 |
-| PPI | 13 | 13 | 13 | 12 | 12 | 12 | 12 | 13 | 12 | 13 | 13 | 12 |
-| Retail sales | 0 | 0 | 0 | 8 | 12 | 12 | 12 | 12 | 12 | 11 | 12 | 12 |
+| PPI | 12 | 12 | 12 | 12 | 12 | 12 | 12 | 12 | 12 | 12 | 12 | 12 |
+| Retail sales | 12 | 12 | 12 | 12 | 12 | 12 | 12 | 12 | 12 | 11 | 12 | 12 |
 
 ## FOMC statement time source
 
@@ -33,16 +33,16 @@ Fed pages list 120 meetings/calls/votes; 108 have a statement, 57 a press confer
 | event | ours | in_FF | FF_not_ours | time_checked | time_match |
 |---|---|---|---|---|---|
 | FOMC decision | 100 | 96 | 1 | 84 | 69 |
-| FOMC press conference | 57 | 57 | 0 | 57 | 55 |
+| FOMC press conference | 57 | 57 | 0 | 57 | 57 |
 | FOMC minutes | 96 | 96 | 0 | 94 | 91 |
 | NFP | 144 | 144 | 0 | 32 | 32 |
 | CPI | 144 | 144 | 0 | 54 | 54 |
-| PPI | 150 | 144 | 0 | 43 | 42 |
-| PCE | 143 | 143 | 1 | 46 | 40 |
+| PPI | 144 | 144 | 0 | 43 | 42 |
+| PCE | 143 | 143 | 1 | 46 | 45 |
 | GDP | 143 | 143 | 0 | 68 | 67 |
-| Retail sales | 103 | 103 | 41 | 51 | 50 |
-| ISM manufacturing | 144 | 136 | 8 | 127 | 126 |
-| ISM services | 144 | 134 | 10 | 115 | 114 |
+| Retail sales | 143 | 143 | 1 | 67 | 66 |
+| ISM manufacturing | 144 | 144 | 0 | 135 | 134 |
+| ISM services | 144 | 142 | 2 | 122 | 121 |
 
 time_checked = days where FF kept an exact time; ~half of FF rows lost their time.
 
@@ -99,103 +99,18 @@ time_checked = days where FF kept an exact time; ~half of FF rows lost their tim
 | FOMC decision | 2012-06-20 | time differs | 12:35 | 12:32 |
 | FOMC decision | 2012-08-01 | time differs | 14:15 | 14:13 |
 | FOMC decision | 2012-09-13 | time differs | 12:35 | 12:30 |
-| FOMC press conference | 2020-03-03 | time differs | 10:30 | 11:00 |
-| FOMC press conference | 2020-03-15 | time differs | 17:30 | 18:30 |
 | FOMC minutes | 2011-11-22 | time differs | 14:00 | 13:28 |
 | FOMC minutes | 2013-04-10 | time differs | 14:00 | 09:00 |
 | FOMC minutes | 2015-08-19 | time differs | 14:00 | 13:46 |
-| PPI | 2010-02-16 | ours only | 08:30 | - |
-| PPI | 2011-02-14 | ours only | 08:30 | - |
-| PPI | 2012-02-14 | ours only | 08:30 | - |
-| PPI | 2017-02-10 | ours only | 08:30 | - |
-| PPI | 2019-02-12 | ours only | 08:30 | - |
-| PPI | 2020-02-14 | ours only | 08:30 | - |
 | PPI | 2021-04-09 | time differs | 08:30 | 08:56 |
 | PCE | 2019-04-28 | FF only | - | 15:30 |
 | PCE | 2012-10-29 | time differs | 08:30 | 08:32 |
-| PCE | 2016-02-26 | time differs | 08:30 | 10:00 |
-| PCE | 2016-12-22 | time differs | 08:30 | 10:00 |
-| PCE | 2019-11-27 | time differs | 08:30 | 10:00 |
-| PCE | 2019-12-20 | time differs | 08:30 | 10:00 |
-| PCE | 2021-11-24 | time differs | 08:30 | 10:00 |
 | GDP | 2020-04-29 | time differs | 08:30 | 08:32 |
-| Retail sales | 2010-01-14 | FF only | - | no time |
-| Retail sales | 2010-02-12 | FF only | - | no time |
-| Retail sales | 2010-03-12 | FF only | - | 08:30 |
-| Retail sales | 2010-04-14 | FF only | - | no time |
-| Retail sales | 2010-05-14 | FF only | - | no time |
-| Retail sales | 2010-06-11 | FF only | - | no time |
-| Retail sales | 2010-07-14 | FF only | - | 08:30 |
-| Retail sales | 2010-08-13 | FF only | - | no time |
-| Retail sales | 2010-09-14 | FF only | - | no time |
-| Retail sales | 2010-10-15 | FF only | - | no time |
-| Retail sales | 2010-11-15 | FF only | - | no time |
-| Retail sales | 2010-12-14 | FF only | - | no time |
-| Retail sales | 2011-01-14 | FF only | - | no time |
-| Retail sales | 2011-02-15 | FF only | - | no time |
-| Retail sales | 2011-03-11 | FF only | - | 08:30 |
-| Retail sales | 2011-04-13 | FF only | - | 08:30 |
-| Retail sales | 2011-05-12 | FF only | - | no time |
-| Retail sales | 2011-06-14 | FF only | - | no time |
-| Retail sales | 2011-07-14 | FF only | - | 08:30 |
-| Retail sales | 2011-08-12 | FF only | - | 08:30 |
-| Retail sales | 2011-09-14 | FF only | - | no time |
-| Retail sales | 2011-10-14 | FF only | - | no time |
-| Retail sales | 2011-11-15 | FF only | - | no time |
-| Retail sales | 2011-12-13 | FF only | - | 08:30 |
-| Retail sales | 2012-01-12 | FF only | - | no time |
-| Retail sales | 2012-02-14 | FF only | - | no time |
-| Retail sales | 2012-03-13 | FF only | - | 08:30 |
-| Retail sales | 2012-04-16 | FF only | - | no time |
-| Retail sales | 2012-05-15 | FF only | - | no time |
-| Retail sales | 2012-06-13 | FF only | - | 08:30 |
-| Retail sales | 2012-07-16 | FF only | - | no time |
-| Retail sales | 2012-08-14 | FF only | - | 08:30 |
-| Retail sales | 2012-09-14 | FF only | - | no time |
-| Retail sales | 2012-10-15 | FF only | - | 08:30 |
-| Retail sales | 2012-11-14 | FF only | - | 08:30 |
-| Retail sales | 2012-12-13 | FF only | - | no time |
-| Retail sales | 2013-01-15 | FF only | - | 08:30 |
-| Retail sales | 2013-02-13 | FF only | - | 08:30 |
-| Retail sales | 2013-03-13 | FF only | - | 08:30 |
-| Retail sales | 2013-04-12 | FF only | - | 08:30 |
 | Retail sales | 2019-04-18 | FF only | - | no time |
 | Retail sales | 2021-05-14 | time differs | 08:30 | 08:32 |
-| ISM manufacturing | 2010-01-05 | ours only | 10:00 | - |
-| ISM manufacturing | 2011-01-04 | ours only | 10:00 | - |
-| ISM manufacturing | 2012-01-04 | ours only | 10:00 | - |
-| ISM manufacturing | 2013-01-03 | ours only | 10:00 | - |
-| ISM manufacturing | 2014-01-03 | ours only | 10:00 | - |
-| ISM manufacturing | 2015-01-05 | ours only | 10:00 | - |
-| ISM manufacturing | 2016-01-05 | ours only | 10:00 | - |
-| ISM manufacturing | 2017-01-04 | ours only | 10:00 | - |
-| ISM manufacturing | 2010-01-04 | FF only | - | 10:00 |
-| ISM manufacturing | 2011-01-03 | FF only | - | 10:00 |
-| ISM manufacturing | 2012-01-03 | FF only | - | 10:00 |
-| ISM manufacturing | 2013-01-02 | FF only | - | 10:00 |
-| ISM manufacturing | 2014-01-02 | FF only | - | 10:00 |
-| ISM manufacturing | 2015-01-02 | FF only | - | 10:00 |
-| ISM manufacturing | 2016-01-04 | FF only | - | 10:00 |
-| ISM manufacturing | 2017-01-03 | FF only | - | 10:00 |
 | ISM manufacturing | 2015-08-03 | time differs | 10:00 | 09:45 |
-| ISM services | 2010-01-07 | ours only | 10:00 | - |
-| ISM services | 2011-01-06 | ours only | 10:00 | - |
-| ISM services | 2012-01-06 | ours only | 10:00 | - |
-| ISM services | 2013-01-07 | ours only | 10:00 | - |
-| ISM services | 2014-01-07 | ours only | 10:00 | - |
-| ISM services | 2015-01-07 | ours only | 10:00 | - |
 | ISM services | 2015-04-03 | ours only | 10:00 | - |
-| ISM services | 2016-01-07 | ours only | 10:00 | - |
-| ISM services | 2017-01-06 | ours only | 10:00 | - |
 | ISM services | 2018-12-05 | ours only | 10:00 | - |
-| ISM services | 2010-01-06 | FF only | - | 10:00 |
-| ISM services | 2011-01-05 | FF only | - | 10:00 |
-| ISM services | 2012-01-05 | FF only | - | no time |
-| ISM services | 2013-01-04 | FF only | - | 10:00 |
-| ISM services | 2014-01-06 | FF only | - | 10:00 |
-| ISM services | 2015-01-06 | FF only | - | 10:00 |
 | ISM services | 2015-04-06 | FF only | - | no time |
-| ISM services | 2016-01-06 | FF only | - | 10:00 |
-| ISM services | 2017-01-05 | FF only | - | 10:00 |
 | ISM services | 2018-12-06 | FF only | - | no time |
 | ISM services | 2014-03-05 | time differs | 10:00 | 09:57 |

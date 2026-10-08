@@ -101,8 +101,11 @@ def daily_break_resume(bars, by_month=False):
     rows = []
     for k, r in resume.groupby(key):
         mode = lambda s: (s.dt.floor("10min").dt.strftime("%H:%M").mode().iloc[0] if len(s) else "-")
+        ny = bars.time_utc.reset_index(drop=True)[r.index].dt.tz_convert(NEW_YORK).dt.tz_localize(None)
+        share = (ny.dt.strftime("%H:%M").between("18:00", "18:10")).mean()
         rows.append({"period": k, "resume_server_US_summer": mode(r[summer[r.index] == True]),
-                     "resume_server_US_winter": mode(r[summer[r.index] == False])})
+                     "resume_server_US_winter": mode(r[summer[r.index] == False]),
+                     "resume_NY_after_conversion": mode(ny), "share_18:00-18:10_NY": f"{share:.0%}"})
     return pd.DataFrame(rows)
 
 
@@ -295,7 +298,8 @@ def step_symbols(purpose, confirm):
                 rec.update({"M1_first": f"{m1.time_server.min():%Y-%m-%d}", "M1_bars": len(m1),
                             "M1_gaps": int(yt.gaps.sum()), "M1_missing_weekdays": int(yt.missing_weekdays.sum()),
                             "clock": clock_summary(offsets)})
-                L += ["### M1", "", md(yt), "", "### Clock per year (NFP spike timing)", "", md(offsets), ""]
+                L += ["### M1", "", md(yt), "", "### Clock per year (NFP spike timing)", "", md(offsets), "",
+                      "### Daily break (M1): resume time", "", md(daily_break_resume(m1)), ""]
             if source == "metaquotes":                    # days rebuilt at the New York 17:00 boundary
                 h1_full = load(h1_path)
                 d1 = daily_from_h1(h1_full)
@@ -319,9 +323,32 @@ def step_symbols(purpose, confirm):
     print(summary.drop(columns=["clock"], errors="ignore").to_string(index=False))
 
 
+def step_reconvert(purpose, confirm):
+    """Re-convert pre-2021 broker bars to UTC with the measured fixed UTC+2 clock (timeutils), from raw files.
+
+    Gold: process_prices + spread_model (the estimated spread depends on the London hour of time_utc).
+    Other broker markets: data/raw/reserved/broker -> data/processed/reserved/broker.
+    2022+ gold rows must come out identical; checked here.
+    """
+    from src import process_prices, spread_model
+    from src.data_access import read_full_file_for_data_prep
+    after_2022 = lambda tf: pd.util.hash_pandas_object(
+        read_prices("XAUUSD.sim", tf, END, None).reset_index(drop=True)).sum()
+    before = {tf: after_2022(tf) for tf in ("H1", "M15", "M1")}
+    process_prices.main(purpose, confirm)
+    spread_model.main(purpose, confirm)
+    unchanged = {tf: bool(after_2022(tf) == before[tf]) for tf in before}
+    print("gold 2022+ rows unchanged:", unchanged)
+    assert all(unchanged.values())
+    for raw_path in sorted((pull_data.RESERVED_RAW / "broker").glob("*.parquet")):
+        bars = pull_data.to_utc(read_full_file_for_data_prep(raw_path, purpose, confirm))
+        bars.to_parquet(pull_data.RESERVED_PROCESSED / "broker" / raw_path.name, index=False)
+        print("re-converted", raw_path.name)
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("step", choices=["calendar", "gold", "download", "symbols", "login"])
+    ap.add_argument("step", choices=["calendar", "gold", "download", "symbols", "reconvert", "login"])
     ap.add_argument("--source", choices=["broker", "metaquotes"], default="broker")
     ap.add_argument("--purpose")
     ap.add_argument("--confirm")
@@ -334,6 +361,8 @@ def main():
         step_download(a.purpose, a.confirm, a.source)
     elif a.step == "symbols":
         step_symbols(a.purpose, a.confirm)
+    elif a.step == "reconvert":
+        step_reconvert(a.purpose, a.confirm)
     elif a.step == "login":
         print(pull_data.confirm_broker_login())
 

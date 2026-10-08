@@ -121,15 +121,16 @@ def ism_events(start=FROM, end=TO):
     """ISM manufacturing = 1st business day, services = 3rd, at 10:00 NY.
 
     Exception: in January ISM publishes one business day later (seen in all
-    four Januaries 2022-2025 in the Forex Factory cross-check).
+    four Januaries 2022-2025 in the Forex Factory cross-check). Before 2018 Januaries
+    followed the plain rule (Forex Factory 2010-2017), so the shift starts in 2018 (Yash, 2026-10-08).
     """
     months = pd.date_range(start, end, freq="MS")
-    january_shift = lambda m: 1 if m.month == 1 else 0
+    january_shift = lambda m: 1 if m.month == 1 and m.year >= 2018 else 0
     return pd.concat([
         make_rows("ISM manufacturing", [nth_business_day(m, 1 + january_shift(m)) for m in months],
-                  "10:00", "rule: 1st business day (2nd in Jan)"),
+                  "10:00", "rule: 1st business day (2nd in Jan from 2018)"),
         make_rows("ISM services", [nth_business_day(m, 3 + january_shift(m)) for m in months],
-                  "10:00", "rule: 3rd business day (4th in Jan)"),
+                  "10:00", "rule: 3rd business day (4th in Jan from 2018)"),
     ])
 
 
@@ -401,6 +402,29 @@ def fomc_events_reserved():
                          "source": events.source}), meetings
 
 
+# Fixes decided by Yash on 2026-10-08 after the first Forex Factory cross-check:
+PPI_REVISION_DAYS = ["2010-02-16", "2011-02-14", "2012-02-14", "2017-02-10", "2019-02-12", "2020-02-14"]
+FF_TIME_OVERRIDES = {          # Forex Factory times where our rule/assumption was wrong
+    ("PCE", "2016-02-26"): "10:00", ("PCE", "2016-12-22"): "10:00", ("PCE", "2019-11-27"): "10:00",
+    ("PCE", "2019-12-20"): "10:00", ("PCE", "2021-11-24"): "10:00",
+    ("FOMC press conference", "2020-03-03"): "11:00",          # unscheduled meetings
+    ("FOMC press conference", "2020-03-15"): "18:30",
+}
+
+
+def retail_sales_from_forex_factory(cal, ff):
+    """Retail-sales months with no FRED date (key series has no vintages before 2013): Forex Factory's date."""
+    have = {(d.year, d.month) for d in cal[cal.event == "Retail sales"].date}
+    ff = ff[ff.event.isin(FF_NAMES["Retail sales"])].sort_values("date").drop_duplicates("date")
+    rows = []
+    for r in ff.itertuples():
+        if (r.date.year, r.date.month) not in have:
+            have.add((r.date.year, r.date.month))
+            rows.append((r.date, r.time_utc if pd.notna(r.time_utc) else ny_to_utc(r.date, "08:30")))
+    return pd.DataFrame({"event": "Retail sales", "date": [d for d, _ in rows], "time_utc": [t for _, t in rows],
+                         "source": "Forex Factory"})
+
+
 def build_reserved(key, purpose, confirm):
     """The 2010-2021 calendar (data preparation only). Returns (calendar, meetings table)."""
     check_window(RESERVED_FROM, RESERVED_TO, "news calendar 2010-2021 (Fed, FRED, ISM rule)", purpose, confirm)
@@ -409,6 +433,15 @@ def build_reserved(key, purpose, confirm):
                      fred_events(key, RESERVED_FROM, RESERVED_TO, "fred_release_dates_2010_2021.csv")],
                     ignore_index=True)
     cal = cal[(pd.to_datetime(cal.date) >= RESERVED_FROM) & (pd.to_datetime(cal.date) <= RESERVED_TO)]
+    ff = load_forex_factory_usd_high(RESERVED_FROM, RESERVED_TO + pd.Timedelta(days=1), purpose, confirm, high_only=False)
+    cal = pd.concat([cal, retail_sales_from_forex_factory(cal, ff)], ignore_index=True)
+    revision = (cal.event == "PPI") & pd.to_datetime(cal.date).isin(pd.to_datetime(PPI_REVISION_DAYS))
+    cal = cal[~revision].reset_index(drop=True)
+    for (event, day), hhmm in FF_TIME_OVERRIDES.items():
+        hit = (cal.event == event) & (pd.to_datetime(cal.date) == pd.Timestamp(day))
+        assert hit.sum() == 1, (event, day)
+        cal.loc[hit, "time_utc"] = ny_to_utc(day, hhmm)
+        cal.loc[hit, "source"] = cal.loc[hit, "source"] + " + Forex Factory time"
     return cal.sort_values("time_utc").reset_index(drop=True), meetings
 
 
