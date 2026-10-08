@@ -22,3 +22,13 @@ def test_trend_uses_completed_days_only():
     assert trend_up_tags([trade_day], closes)[trade_day] == False   # 100 is not > avg 100
     next_day = trade_day + dt.timedelta(days=1)
     assert trend_up_tags([next_day], closes)[next_day] == True      # now 1000 is completed
+
+
+def test_with_trend_chooser_keeps_only_with_trend_signals():
+    from src.backtest import Entry
+    from src.filters import with_trend_chooser
+    day = type("D", (), {"date": dt.date(2022, 3, 1)})()
+    long_signal = lambda d, b, p, r=None: (Entry(+1, 0, 0, stop_price=1.0), None)
+    assert with_trend_chooser(long_signal, {day.date: True})(day, None, None)[0] is not None
+    assert with_trend_chooser(long_signal, {day.date: False})(day, None, None) == (None, "against trend")
+    assert with_trend_chooser(long_signal, {day.date: None})(day, None, None) == (None, "trend unknown")

@@ -89,3 +89,19 @@ CANDIDATES = {
     "with-trend only": ("with_trend", True),
     "skip FOMC/CPI/NFP days": ("event_day", False),
 }
+
+
+def with_trend_chooser(base_chooser, trend_up_by_date):
+    """A + with-trend (adopted in spec v1.5): take Bot A's signal only if it goes with
+    the daily trend. No trend reading yet (under 20 completed days) = no trade."""
+    def choose(day, box, p, rng=None):
+        entry, why = base_chooser(day, box, p, rng)
+        if entry is None:
+            return None, why
+        up = trend_up_by_date.get(day.date)
+        if up is None:
+            return None, "trend unknown"
+        if (entry.direction > 0) != up:
+            return None, "against trend"
+        return entry, None
+    return choose
