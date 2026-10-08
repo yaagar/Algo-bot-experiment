@@ -7,3 +7,5 @@ Updated 2026-10-08.
 2. Run Phase 4c once (`src/run_phase4c.py`, drafted, not yet run): A and A + with-trend, plus C1, 2010–2021, three cost cases, per-year results in $ and R; judge the v1.5 decision rule.
 
 No 2010–2021 result has been produced or looked at.
+
+Order changed by spec v1.6: Phase 5 (Claude filter on plain Bot A) runs before 4c.
