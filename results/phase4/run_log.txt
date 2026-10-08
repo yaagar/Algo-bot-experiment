@@ -1,0 +1,10 @@
+HOLDOUT window (UTC): 2026-01-01 00:00:00+00:00 -> 2026-09-30 23:00:00+00:00
+M15 base               A:  62 trades, net    $572, beats 99.5% of C1, kill switch None -> FAIL   (5s)
+M15 spread x1.5        A:  62 trades, net    $567, beats 99.5% of C1, kill switch None -> FAIL   (10s)
+M15 commission 0.0025% A:  62 trades, net    $562, beats 99.5% of C1, kill switch None -> FAIL   (14s)
+H1  base               A:  49 trades, net    $534, beats 98.0% of C1, kill switch None -> FAIL   (18s)
+H1  spread x1.5        A:  49 trades, net    $530, beats 98.0% of C1, kill switch None -> FAIL   (21s)
+H1  commission 0.0025% A:  49 trades, net    $526, beats 98.0% of C1, kill switch None -> FAIL   (24s)
+M15 [info, no kill switch] A: 62 trades, net $572, beats 99.5% of C1
+H1  [info, no kill switch] A: 49 trades, net $534, beats 98.0% of C1
+done in 32s -> results\phase4

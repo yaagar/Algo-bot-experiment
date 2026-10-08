@@ -31,6 +31,7 @@ MT5 (OANDA MetaTrader 5, logged in to the FTMO trial) must be open for anything 
 .venv\Scripts\python -m src.headlines           # headlines from GDELT DOC API (backup)
 .venv\Scripts\python -m src.check_pnl           # MT5: compare our P&L maths with real trades
 .venv\Scripts\python -m src.run_phase3          # Bot A + C1 + nudges + leak test, 2022-2025 (~5 min)
+.venv\Scripts\python -m src.run_phase4          # ONE-TIME holdout run 2026-01..09 — already used, do not re-run
 .venv\Scripts\python -m pytest                  # run all tests
 ```
 
@@ -83,6 +84,7 @@ A's stop distance, same exits. **`ftmo_rules.py`** — FTMO daily-loss / max-los
 **`metrics.py`** — spec §10 numbers and the §11 pass/fail checks.
 **`leak_test.py`** — shuffles all data after a random time T and checks no decision before T changes.
 **`run_phase3.py`** — runs it all and writes `results/phase3/`.
+**`run_phase4.py`** — the one-time holdout run (same engine, 2026-01-01 → 2026-09-30); results in `results/phase4/`.
 
 ## Flow so far
 
@@ -95,5 +97,5 @@ GDELT raw GKG files ──headlines_gkg──> data/raw/gdelt_gkg/<day>.jsonl
 UTC bars + calendar ──backtest (strategy_asian / controls)──> trades ──metrics + ftmo_rules──> results/phase3/
 ```
 
-## Coming next (Phase 4)
-One-time holdout run (2026-01-01 → 2026-09-30) of Bot A + C1, no changes afterwards.
+## Coming next (Phase 5)
+Claude filter (Bot B): prompts for approval → isolation test → B + C2 on the Claude window (2026-07-01 → latest).
