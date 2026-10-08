@@ -81,3 +81,8 @@ A pass is still **provisional**. It needs a paper forward test before any real c
 
 ## Change Log
 - v1.0 — 2026-10-08 — initial lock.
+- v1.1 — 2026-10-08 — approved by Yash after E3-1, before any Experiment 3 result. **Data-source addition, no rule change.**
+  - Germany 40 and Japan 225 are not offered by the broker: skipped per §3. 8 markets.
+  - FX (EURUSD, USDJPY, AUDUSD): the broker's history starts 2025-05-20 (a partial day). Prices before the broker's first full day (server 2025-05-21, from 2025-05-20 21:00 UTC) come from MetaQuotes-Demo (a second MT5 terminal; the FTMO trial terminal was not changed). MetaQuotes' server clock follows European summer time, so its D1 bars close at 18:00 New York for about 4 weeks a year. Daily bars were therefore rebuilt from its H1 at the New York 17:00 boundary (§4 rule). Overlap check against the broker in `results/exp3/fx_splice_check.md`. Only MetaQuotes prices are used: spreads (broker open-hour p75 estimate, flagged), commission and swap are FTMO's throughout.
+  - Triple swap: Wednesday for FX and metals, Friday for USOIL, US500 and US100.
+  - Oil and index commission: spec values approved; the 2× commission stress covers the uncertainty.

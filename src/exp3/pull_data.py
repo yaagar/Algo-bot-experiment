@@ -10,7 +10,8 @@ For each spec §3 market the broker offers:
 
 Never reads anything before 2022-01-01 (checked by src/data_access.py). Read-only: no trading calls.
 
-Run:  .venv/Scripts/python -m src.exp3.pull_data
+Run:  .venv/Scripts/python -m src.exp3.pull_data                 (broker, FTMO trial terminal)
+      .venv/Scripts/python -m src.exp3.pull_data --metaquotes    (FX history, MetaQuotes-Demo terminal)
 """
 import json
 from datetime import datetime, timezone
@@ -27,6 +28,8 @@ from src.timeutils import server_to_utc
 START = datetime(2022, 1, 1, tzinfo=timezone.utc)
 SPREAD_PERCENTILE = 0.75
 MT5_DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+METAQUOTES_TERMINAL = r"C:\Program Files\MetaTrader 5\terminal64.exe"
+METAQUOTES_CLOCK = "Europe/Athens"          # UTC+2 winter / UTC+3 European summer
 PROVISIONAL_TRIPLE = "Wednesday"      # Experiment 2 clarification 3 (field read 7 = invalid on gold)
 
 
@@ -40,6 +43,14 @@ def triple_swap_day(mt5_value):
 def to_utc(raw):
     bars = raw.copy()
     bars.insert(0, "time_utc", server_to_utc(bars.time_server))
+    return bars[bars.time_utc.notna()].reset_index(drop=True)
+
+
+def to_utc_metaquotes(raw):
+    """MetaQuotes-Demo server time (EET/EEST, European DST) -> UTC. The DST switch hour (weekend) is dropped."""
+    bars = raw.copy()
+    utc = bars.time_server.dt.tz_localize(METAQUOTES_CLOCK, ambiguous="NaT", nonexistent="NaT").dt.tz_convert("UTC")
+    bars.insert(0, "time_utc", utc)
     return bars[bars.time_utc.notna()].reset_index(drop=True)
 
 
@@ -126,5 +137,35 @@ def main():
     SPECS_PATH.write_text(json.dumps(out, indent=2), encoding="utf-8")
 
 
+def pull_metaquotes(terminal_path=METAQUOTES_TERMINAL, symbols=("EURUSD", "USDJPY", "AUDUSD")):
+    """FX history before the broker's own (it starts 2025-05-19) from a MetaQuotes-Demo terminal.
+
+    Change Log v1.1 (data-source addition, approved by Yash 2026-10-08). Downloads D1 and H1 from
+    2022-01-01 to now, so the whole overlap with the broker can be checked (src/exp3/fx_splice.py).
+    MetaQuotes-Demo's server clock follows EUROPEAN summer time (UTC+2 / UTC+3, like Europe/Athens),
+    not New York + 7 h: found in E3-2 by matching its H1 closes to the broker's week by week.
+    Only prices are used from MetaQuotes: spreads and all costs stay FTMO's.
+    """
+    check_window(START, None, "Experiment 3 MetaQuotes-Demo FX download")      # 2022+ only
+    account = data_mt5.connect(terminal_path)
+    if account.server != "MetaQuotes-Demo":
+        data_mt5.disconnect()
+        raise ConnectionError(f"expected MetaQuotes-Demo, terminal is on {account.server}")
+    (RAW / "metaquotes").mkdir(parents=True, exist_ok=True)
+    (PROCESSED / "metaquotes").mkdir(parents=True, exist_ok=True)
+    now = datetime.now(timezone.utc)
+    try:
+        for symbol in symbols:
+            mt5.symbol_select(symbol, True)
+            for tf in ("D1", "H1"):
+                raw = data_mt5.pull_rates(symbol, tf, START, now)
+                raw.to_parquet(RAW / "metaquotes" / f"{symbol}_{tf}.parquet", index=False)
+                to_utc_metaquotes(raw).to_parquet(PROCESSED / "metaquotes" / f"{symbol}_{tf}.parquet", index=False)
+                print(f"MetaQuotes {symbol} {tf}: {len(raw)} bars, {raw.time_server.iloc[0]} -> {raw.time_server.iloc[-1]} (server)")
+    finally:
+        data_mt5.disconnect()
+
+
 if __name__ == "__main__":
-    main()
+    import sys
+    pull_metaquotes() if "--metaquotes" in sys.argv else main()

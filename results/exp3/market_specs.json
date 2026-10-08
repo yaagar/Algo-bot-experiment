@@ -202,16 +202,31 @@
       "swap_rollover3days_field": 7,
       "triple_swap_day": "Wednesday",
       "triple_swap_day_from_broker": false,
-      "d1_bars": 361,
-      "h1_bars": 8649,
-      "first_d1_utc": "2025-05-19 21:00:00+00:00",
+      "d1_bars": 1240,
+      "h1_bars": 29669,
+      "first_d1_utc": "2022-01-02 22:00:00+00:00",
       "last_d1_utc": "2026-10-07 21:00:00+00:00",
       "first_h1_utc": "2025-05-20 09:00:00+00:00",
       "last_h1_utc": "2026-10-08 18:00:00+00:00",
       "real_spreads_from_utc": "2025-05-20 09:00:00+00:00",
       "open_hour_p75_points": 9.0,
       "open_hour_days_measured": 284,
-      "d1_bars_estimated_pct": 21.6
+      "d1_bars_estimated_pct": 77.2,
+      "data_dir": "spliced",
+      "spliced_from_metaquotes_before_utc": "2025-05-20 21:00:00+00:00",
+      "overlap_days": 354,
+      "overlap_daily_diff_median_pips": {
+        "open": 2.0,
+        "high": 0.2,
+        "low": 0.2,
+        "close": 0.7
+      },
+      "overlap_daily_diff_max_pips": {
+        "open": 70.2,
+        "high": 8.4,
+        "low": 15.5,
+        "close": 16.5
+      }
     },
     {
       "market": "USDJPY",
@@ -237,16 +252,31 @@
       "swap_rollover3days_field": 7,
       "triple_swap_day": "Wednesday",
       "triple_swap_day_from_broker": false,
-      "d1_bars": 361,
-      "h1_bars": 8649,
-      "first_d1_utc": "2025-05-19 21:00:00+00:00",
+      "d1_bars": 1241,
+      "h1_bars": 29671,
+      "first_d1_utc": "2022-01-02 22:00:00+00:00",
       "last_d1_utc": "2026-10-07 21:00:00+00:00",
       "first_h1_utc": "2025-05-20 09:00:00+00:00",
       "last_h1_utc": "2026-10-08 18:00:00+00:00",
       "real_spreads_from_utc": "2025-05-20 21:00:00+00:00",
       "open_hour_p75_points": 21.0,
       "open_hour_days_measured": 322,
-      "d1_bars_estimated_pct": 10.8
+      "d1_bars_estimated_pct": 74.1,
+      "data_dir": "spliced",
+      "spliced_from_metaquotes_before_utc": "2025-05-20 21:00:00+00:00",
+      "overlap_days": 354,
+      "overlap_daily_diff_median_pips": {
+        "open": 3.0,
+        "high": 0.2,
+        "low": 0.35,
+        "close": 1.0
+      },
+      "overlap_daily_diff_max_pips": {
+        "open": 62.3,
+        "high": 16.8,
+        "low": 35.1,
+        "close": 12.4
+      }
     },
     {
       "market": "AUDUSD",
@@ -272,16 +302,31 @@
       "swap_rollover3days_field": 7,
       "triple_swap_day": "Wednesday",
       "triple_swap_day_from_broker": false,
-      "d1_bars": 361,
-      "h1_bars": 8649,
-      "first_d1_utc": "2025-05-19 21:00:00+00:00",
+      "d1_bars": 1241,
+      "h1_bars": 29671,
+      "first_d1_utc": "2022-01-02 22:00:00+00:00",
       "last_d1_utc": "2026-10-07 21:00:00+00:00",
       "first_h1_utc": "2025-05-20 09:00:00+00:00",
       "last_h1_utc": "2026-10-08 18:00:00+00:00",
       "real_spreads_from_utc": "2025-05-20 09:00:00+00:00",
       "open_hour_p75_points": 11.0,
       "open_hour_days_measured": 330,
-      "d1_bars_estimated_pct": 8.9
+      "d1_bars_estimated_pct": 73.5,
+      "data_dir": "spliced",
+      "spliced_from_metaquotes_before_utc": "2025-05-20 21:00:00+00:00",
+      "overlap_days": 354,
+      "overlap_daily_diff_median_pips": {
+        "open": 2.3,
+        "high": 0.2,
+        "low": 0.3,
+        "close": 0.7
+      },
+      "overlap_daily_diff_max_pips": {
+        "open": 24.6,
+        "high": 4.4,
+        "low": 17.8,
+        "close": 12.4
+      }
     }
   ],
   "not_available": [

@@ -17,7 +17,7 @@ from src.data_access import read_prices
 from src.exp2.engine import Costs, Engine, Swap
 from src.exp2.market import Market, bar_frame, m1_arrays
 from src.exp2.strategies import S3Donchian
-from src.exp3.markets import PROCESSED, SPECS_PATH
+from src.exp3.markets import BY_NAME, PROCESSED, SPECS_PATH
 
 WINDOW_START = pd.Timestamp("2022-01-01", tz="UTC")
 WINDOW_END = pd.Timestamp("2026-10-01", tz="UTC")       # exclusive: window ends 2026-09-30 (spec §4)
@@ -35,8 +35,9 @@ def load_frames(spec, start=WINDOW_START, end=WINDOW_END):
 
     A broker day opens at 17:00 New York the evening before, so the day labelled 1 October opens
     on 30 September (UTC). Only days that have CLOSED by `end` are kept, and H1 bars stop there too."""
+    folder = PROCESSED / spec.get("data_dir", "")     # FX: "spliced" (MetaQuotes before 2025-05-21, Change Log v1.1)
     d1, h1 = (read_prices(spec["symbol"], tf, start, end, columns=BAR_COLS,
-                          path=PROCESSED / f"{spec['symbol']}_{tf}.parquet").reset_index(drop=True)
+                          path=folder / f"{spec['symbol']}_{tf}.parquet").reset_index(drop=True)
               for tf in ("D1", "H1"))
     d1 = d1[d1.time_utc + pd.Timedelta(days=1) <= end].reset_index(drop=True)
     last_close = d1.time_utc.iloc[-1] + pd.Timedelta(days=1)
@@ -56,11 +57,14 @@ def quote_per_usd(spec):
     raise ValueError(f"no USD conversion for {spec['symbol']}")
 
 
-def make_engine(spec, market, risk=50.0):
-    """Base costs. Results are in R; risk only scales the fractional lot size."""
-    costs = Costs(1.0, spec["commission_pct_per_side"], spec["commission_per_lot_usd_per_side"])
-    swap = Swap(spec["swap_long_pct_per_year"], spec["swap_short_pct_per_year"], 360,
-                WEEKDAYS.index(spec["triple_swap_day"]))
+def make_engine(spec, market, risk=50.0, spread_mult=1.0, commission_mult=1.0, swap_charge_mult=1.0):
+    """Results are in R; risk only scales the fractional lot size. Multipliers = spec §5.3 stresses.
+    The swap stress multiplies swap CHARGES (negative rates) only; swap credits are left unchanged."""
+    costs = Costs(spread_mult, spec["commission_pct_per_side"] * commission_mult,
+                  spec["commission_per_lot_usd_per_side"] * commission_mult)
+    charge = lambda rate: rate * swap_charge_mult if rate < 0 else rate
+    swap = Swap(charge(spec["swap_long_pct_per_year"]), charge(spec["swap_short_pct_per_year"]), 360,
+                WEEKDAYS.index(BY_NAME[spec["market"]].triple_swap_day))
     return Engine(market.m1, NO_EVENTS, costs, swap, risk_usd=risk, contract=spec["contract_size"],
                   weekend_rule=False, quote_per_usd=quote_per_usd(spec))
 

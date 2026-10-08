@@ -20,21 +20,27 @@ class MarketDef:
     asset_class: str
     commission_pct: float = 0.0       # % of notional per side
     commission_per_lot_usd: float = 0.0   # $ per lot per side
+    triple_swap_day: str = "Wednesday"    # approved by Yash 2026-10-08 (Change Log v1.1)
 
 
+# Triple swap (Change Log v1.1): Wednesday for FX and metals, Friday for USOIL, US500, US100.
 # Spec §4 base commission: metals 0.0007% of notional, FX $2.50/lot, indices $0, oil 0.001% (all per side)
 MARKETS = [
     MarketDef("Gold", ("XAUUSD", "GOLD"), "Metals", commission_pct=0.0007),
     MarketDef("Silver", ("XAGUSD", "SILVER"), "Metals", commission_pct=0.0007),
-    MarketDef("WTI crude oil", ("USOIL", "WTI", "XTIUSD", "USOUSD", "CL"), "Oil", commission_pct=0.001),
-    MarketDef("S&P 500", ("US500", "SPX500", "SP500", "USA500"), "Indices"),
-    MarketDef("Nasdaq 100", ("US100", "NAS100", "USTEC", "NDX100"), "Indices"),
+    MarketDef("WTI crude oil", ("USOIL", "WTI", "XTIUSD", "USOUSD", "CL"), "Oil", commission_pct=0.001,
+              triple_swap_day="Friday"),
+    MarketDef("S&P 500", ("US500", "SPX500", "SP500", "USA500"), "Indices", triple_swap_day="Friday"),
+    MarketDef("Nasdaq 100", ("US100", "NAS100", "USTEC", "NDX100"), "Indices", triple_swap_day="Friday"),
     MarketDef("Germany 40", ("GER40", "DE40", "DAX40", "GER30", "DE30"), "Indices"),
     MarketDef("Japan 225", ("JP225", "JPN225", "NIKKEI", "N225"), "Indices"),
     MarketDef("EURUSD", ("EURUSD",), "FX", commission_per_lot_usd=2.50),
     MarketDef("USDJPY", ("USDJPY",), "FX", commission_per_lot_usd=2.50),
     MarketDef("AUDUSD", ("AUDUSD",), "FX", commission_per_lot_usd=2.50),
 ]
+
+
+BY_NAME = {m.name: m for m in MARKETS}
 
 
 def find_symbol(market, broker_names):
