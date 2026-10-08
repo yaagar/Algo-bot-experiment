@@ -120,6 +120,21 @@ re-run resumes from the cache.
 **`tf_bootstrap.py`** — bootstrap confidence interval for M15 vs H1 monthly R.
 **`run_2026_trend_info.py`**, **`run_phase4c.py`** — 2026 info-only trend comparison; Phase 4c (drafted, pending).
 
+## Experiment 2 (`src/exp2/`, spec `docs/EXPERIMENT_2_SPEC.md`)
+
+**`market.py`** — loads 2022+ M1/M15/H1 through the data lock, builds H4 bars (4-hour blocks of broker
+server time, as MT5 does), broker-day high/low/close, and Wilder-smoothed ATR/RSI plus SMA. All causal.
+**`engine.py`** — one strategy, one position at a time. Decisions at bar close, fills at the next bar's open
+with spread; stops/targets on M1 (longs on bid, shorts on ask, stop first on a tie); forced exits (own time
+exit, Friday 20:00 London — or the last price before an early Friday close); news blackout; no entries
+from Friday 16:00 London; fractional size so results are in R; swap per rollover (×3 Wednesday).
+**`strategies.py`** — S1 Asian breakout, S2 box rule (PDH/PDL wick rejection), S3 Donchian H4,
+S4 RSI(2) pullback, S5 Asian-hours long (clock-based).
+**`c1.py`** — random-direction control: same entry, stop distance and exit time, coin-flip direction.
+**`regime.py`** — labels each month trending/ranging and up/down from broker-day closes.
+**`run_e2_1.py`** — Phase E2-1 build-and-verify (scramble test, S1 vs Experiment 1, C1 smoke test,
+hand-check export). No performance numbers.
+
 ## Coming next
 See `results/next_steps.md`: calendar extension + Phase 4c; Phase 6 paper forward test (design in
 `results/phase6_design.md`, awaiting Yash's decisions).
