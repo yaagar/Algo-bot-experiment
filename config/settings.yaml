@@ -1,0 +1,58 @@
+# Gold Bot Experiment — settings
+# Numbers here mirror docs/EXPERIMENT_SPEC.md v1.0 (LOCKED). Do not change them
+# without an approved Change Log entry in the spec.
+
+mt5:
+  # Exact terminal to attach to. Pinned so we never connect to a different MT5 by accident.
+  terminal_path: 'C:\Program Files\OANDA MetaTrader 5\terminal64.exe'
+  # "auto" = detect the XAU/USD symbol. Set a name (e.g. "XAUUSD.sim") to force it.
+  symbol: auto
+  connect_timeout_ms: 60000
+
+costs:
+  # Commission in USD per 1.0 lot, ROUND TURN (open + close together).
+  # PLACEHOLDER — Yash to fill in FTMO's real value. Backtests refuse to run while null.
+  commission_per_lot_round_turn_usd: null
+  swap: 0                      # spec §8: no overnight holds
+
+account:                       # spec §3 — FTMO 2-Step, $10,000, Standard
+  initial_balance: 10000
+  phase1_profit_target_pct: 10
+  phase2_profit_target_pct: 5
+  max_daily_loss_pct: 5        # on equity incl. floating, from start-of-day balance
+  max_daily_loss_reset_tz: Europe/Prague
+  max_loss_static_pct: 10      # equity may never go below $9,000
+  min_trading_days: 4
+  news_restriction_minutes: 2  # FTMO: no new trades within ±2 min of high-impact news
+
+risk:                          # spec §4 — our own, tighter than FTMO
+  risk_per_trade_usd: 50       # 0.5% of initial balance
+  daily_stop_usd: 150          # -1.5%, realised + floating
+  kill_switch_drawdown_usd: 600  # -6% from equity peak
+
+strategy_asian:                # spec §5 — times are Europe/London local
+  timezone: Europe/London
+  box_start: "00:00"
+  box_end: "07:00"
+  entry_window_start: "07:00"
+  entry_window_end: "16:00"
+  time_exit: "20:00"
+  take_profit_r: 1.5
+  min_box_to_median_spread: 5  # skip day if box height < 5 x median spread
+  max_box_gap_minutes: 30
+  news_blackout_minutes: 30    # USD high-impact, before and after
+  entry_timeframes: [M15, H1]
+
+periods:                       # spec §7 (LOCKED)
+  development:   {start: 2022-01-01, end: 2025-12-31}
+  holdout:       {start: 2026-01-01, end: 2026-09-30}
+  claude_window: {start: 2026-07-01, end: latest}
+
+controls:                      # spec §2
+  c1_random_entry_seeds: 200
+  c2_random_veto_seeds: 1000
+
+claude:                        # spec §6.4 — filled in Phase 5
+  pinned_model: null
+  call_timeout_seconds: 60
+  consistency_recheck_fraction: 0.20

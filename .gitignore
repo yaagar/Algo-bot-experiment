@@ -1,0 +1,14 @@
+# Market/calendar/headline data never goes in git (CLAUDE.md)
+data/raw/*
+data/processed/*
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Never commit credentials
+.env
+*.secret
