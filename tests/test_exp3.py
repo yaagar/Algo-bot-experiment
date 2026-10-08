@@ -57,3 +57,41 @@ def test_fx_commission_per_lot_converted_to_quote_currency():
     pos = eng.open_position(Order(1, 0, lambda p, s: p - 1.0), 0, 100.0, 0.0, res)   # risk 50 / (1 x 1) = 50 lots
     eng.close(pos, 2 * NS_H, 100.0, "exit signal", res)
     assert abs(res.trades[0]["commission_usd"] - 50 * 2.50 * 100.0 * 2) < 1e-9     # both sides, in quote units
+
+
+# --- E3-2 evaluation maths ---------------------------------------------------------------
+
+from src.exp3.evaluate import ftmo_sim, r_stats  # noqa: E402
+
+DAY = 24 * NS_H
+
+
+def _trade(entry_day, exit_day, net_r, **kw):
+    base = pd.Timestamp("2024-01-08 22:00", tz="UTC").value       # Monday broker midnight (winter)
+    row = {"entry_ns": base + entry_day * DAY, "exit_ns": base + exit_day * DAY, "net_r": net_r,
+           "direction": "LONG", "entry_price": 100.0, "stop_distance": 10.0, "lots": 5.0, "exit_price": 100.0,
+           "net_usd": net_r * 50.0, "commission_usd": 0.0, "swap_usd": 0.0, "exit_reason": "exit signal"}
+    row.update(kw)
+    return row
+
+
+def test_r_stats_drawdown_and_years():
+    t = pd.DataFrame([_trade(0, 1, 2.0), _trade(1, 2, -1.0), _trade(2, 3, -1.5), _trade(3, 4, 1.0)])
+    s = r_stats(t)
+    assert s["total_r"] == 0.5 and s["max_dd_r"] == 2.5 and s["trades"] == 4
+    assert s["per_year"] == {2024: 0.5}
+
+
+def test_ftmo_sim_scales_lots_marks_daily_low_and_skips_min_lot():
+    spec = {"symbol": "X", "contract_size": 1.0, "volume_step": 0.1, "volume_min": 0.1, "point": 0.1,
+            "currency_profit": "USD"}
+    days = pd.DataFrame({"time_utc": pd.to_datetime([pd.Timestamp("2024-01-08 22:00", tz="UTC") + pd.Timedelta(days=k)
+                                                     for k in range(5)]),
+                         "open": 100.0, "high": 101.0, "low": [99.0, 80.0, 99.0, 99.0, 99.0], "close": 100.0,
+                         "spread_used": 0})
+    t = pd.DataFrame([_trade(0, 3, 1.0, net_usd=50.0)])              # $50 on 5 fractional lots
+    f = ftmo_sim({"X": t}, [spec], {"X": days}, 25.0)                  # 25 / (10 x 1) = 2.5 lots -> scale 0.5
+    assert f["skipped_min_lot"] == 0 and abs(f["final_balance"] - 10_025.0) < 1e-9
+    assert abs(f["worst_day_loss"] - 50.0) < 1e-9                      # day 2 low 80: (80-100) x 2.5
+    tiny = ftmo_sim({"X": pd.DataFrame([_trade(0, 3, 1.0, stop_distance=1000.0)])}, [spec], {"X": days}, 25.0)
+    assert tiny["skipped_min_lot"] == 1                                # 25 / 1000 = 0.025 lots < 0.1

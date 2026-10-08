@@ -60,6 +60,29 @@ def independent_check(spec, d1, h1, res):
             "pass": len(eng) == len(trades) == same and signals_ok and stops_ok}
 
 
+def leak_test(specs, frames, base, n_cuts=N_CUTS, seed=CUT_SEED):
+    """Future-scramble test: per market, n_cuts random cut times inside its own history; every decision
+    before the cut must be unchanged when all its data after the cut is shuffled."""
+    rng = np.random.default_rng(seed)
+    ok = {sym: 0 for sym in base}
+    before_n = {sym: [] for sym in base}
+    changed = {sym: [] for sym in base}
+    for c in range(n_cuts):
+        for s in specs:
+            sym = s["symbol"]
+            h1 = frames[sym][1]
+            cut = pd.Timestamp(int(rng.integers(h1.time_utc.iloc[0].value, h1.time_utc.iloc[-1].value)), tz="UTC")
+            d1, h1 = (scramble_after(f, cut, rng) for f in frames[sym])
+            scr = run_market(s, d1, h1)
+            b = sorted((d for d in base[sym].decisions if d[0] <= cut.value), key=str)
+            b2 = sorted((d for d in scr.decisions if d[0] <= cut.value), key=str)
+            ok[sym] += b == b2
+            before_n[sym].append(len(b))
+            changed[sym].append(len(set(map(str, base[sym].decisions)) ^ set(map(str, scr.decisions))))
+            assert all(seen <= when for when, _, _, seen in scr.decisions)
+    return ok, before_n, changed
+
+
 def main():
     t0 = time.time()
     specs = load_specs()
@@ -112,24 +135,7 @@ def main():
                  f"{c['worst_stop_gap']:.2e} | {'yes' if c['pass'] else '**NO**'} |")
     print(f"checks done ({time.time() - t0:.0f}s)")
 
-    rng = np.random.default_rng(CUT_SEED)
-    ok = {sym: 0 for sym in base}
-    before_n = {sym: [] for sym in base}
-    changed = {sym: [] for sym in base}
-    for c in range(N_CUTS):
-        for s in specs:
-            sym = s["symbol"]
-            h1 = frames[sym][1]          # cut inside this market's own history (FX starts 2025)
-            cut = pd.Timestamp(int(rng.integers(h1.time_utc.iloc[0].value, h1.time_utc.iloc[-1].value)), tz="UTC")
-            d1, h1 = (scramble_after(f, cut, rng) for f in frames[sym])
-            scr = run_market(s, d1, h1)
-            b = sorted((d for d in base[sym].decisions if d[0] <= cut.value), key=str)
-            b2 = sorted((d for d in scr.decisions if d[0] <= cut.value), key=str)
-            ok[sym] += b == b2
-            before_n[sym].append(len(b))
-            changed[sym].append(len(set(map(str, base[sym].decisions)) ^ set(map(str, scr.decisions))))
-            assert all(seen <= when for when, _, _, seen in scr.decisions)
-        print(f"scramble cut {c + 1}/{N_CUTS} ({time.time() - t0:.0f}s)")
+    ok, before_n, changed = leak_test(specs, frames, base)
     L += ["", f"## Future-scramble test (portfolio, {N_CUTS} random cut times per market inside its own history, "
           "all its data after the cut shuffled)",
           "", "| Symbol | Cuts with every decision before the cut identical | Decisions before the cut (min / median) | "
