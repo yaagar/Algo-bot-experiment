@@ -13,6 +13,7 @@ import json
 import pandas as pd
 
 from src.config import PROJECT_ROOT, load_settings
+from src.data_access import read_full_file_for_data_prep, read_prices
 from src.timeutils import LONDON
 
 PROCESSED = PROJECT_ROOT / "data" / "processed"
@@ -43,15 +44,16 @@ def apply_table(bars, table, real_from):
     return bars
 
 
-def main():
+def main(purpose=None, confirm=None):
+    """Rewrites whole files, so it reaches the reserved period: needs Yash's confirmation."""
     symbol = load_settings()["mt5"]["symbol"]
-    m1 = pd.read_parquet(PROCESSED / f"{symbol}_M1.parquet")
-    real_from = m1.loc[m1.spread > 0, "time_utc"].iloc[0].normalize()   # first day with real spreads
+    m1 = read_prices(symbol, "M1", MODEL_FROM, None)          # the table only needs 2026 data
+    real_from = pd.Timestamp("2025-12-17", tz="UTC")   # first day with real spreads (Phase 2 data report)
     table, counts = build_table(m1)
 
     for tf in ("M1", "M15", "H1"):
         path = PROCESSED / f"{symbol}_{tf}.parquet"
-        bars = apply_table(pd.read_parquet(path), table, real_from)
+        bars = apply_table(read_full_file_for_data_prep(path, purpose, confirm), table, real_from)
         bars.to_parquet(path, index=False)
         print(f"{tf:4} estimated spread on {bars.spread_estimated.mean():6.1%} of bars")
 
@@ -68,4 +70,9 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    import argparse
+    ap = argparse.ArgumentParser(description="Reaches the reserved pre-2022 period: needs --purpose and --confirm (see src/data_access.py).")
+    ap.add_argument("--purpose")
+    ap.add_argument("--confirm")
+    a = ap.parse_args()
+    main(a.purpose, a.confirm)

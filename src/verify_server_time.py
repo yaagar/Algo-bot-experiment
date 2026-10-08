@@ -21,11 +21,13 @@ import pandas as pd
 
 from src.calendar_events import OUT as CALENDAR_PATH
 from src.config import PROJECT_ROOT
+from src.data_access import read_prices
 from src.timeutils import NEW_YORK, server_to_utc
 
 M1_PATH = PROJECT_ROOT / "data" / "raw" / "XAUUSD.sim_M1.parquet"
 OUT_DIR = PROJECT_ROOT / "results" / "phase2"
 FROM = pd.Timestamp("2022-01-01")
+FROM_UTC = pd.Timestamp("2022-01-01", tz="UTC")
 SPIKE_MULTIPLE = 3
 
 # Candidate rules for the server clock: name -> function(naive server times) -> UTC
@@ -39,7 +41,7 @@ RULES = {
 
 
 def load_m1():
-    m1 = pd.read_parquet(M1_PATH)
+    m1 = read_prices("XAUUSD.sim", "M1", FROM_UTC, None).reset_index(drop=True)
     m1 = m1[m1.time_server >= FROM].reset_index(drop=True)
     m1["abs_ret"] = (m1.close / m1.open - 1).abs()
     return m1

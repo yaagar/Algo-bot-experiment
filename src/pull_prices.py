@@ -11,12 +11,15 @@ from datetime import datetime, timezone
 
 from src import data_mt5
 from src.config import PROJECT_ROOT, load_settings
+from src.data_access import check_window
 
 RAW_DIR = PROJECT_ROOT / "data" / "raw"
 SEARCH_FROM = datetime(2010, 1, 1, tzinfo=timezone.utc)   # earlier than any broker history here
 
 
-def main():
+def main(purpose=None, confirm=None):
+    """Downloads from 2010, so it reaches the reserved period: needs Yash's confirmation."""
+    check_window(SEARCH_FROM, None, "MT5 history download", purpose, confirm)
     settings = load_settings()
     cfg = settings["mt5"]
     account = data_mt5.connect(cfg["terminal_path"], cfg["connect_timeout_ms"])
@@ -56,4 +59,9 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    import argparse
+    ap = argparse.ArgumentParser(description="Reaches the reserved pre-2022 period: needs --purpose and --confirm (see src/data_access.py).")
+    ap.add_argument("--purpose")
+    ap.add_argument("--confirm")
+    a = ap.parse_args()
+    main(a.purpose, a.confirm)

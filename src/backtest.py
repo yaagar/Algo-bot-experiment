@@ -17,6 +17,7 @@ import numpy as np
 import pandas as pd
 
 from src.config import PROJECT_ROOT, commission_usd
+from src.data_access import read_prices
 from src.strategy_asian import Params, compute_box, find_breakout
 from src.timeutils import LONDON
 
@@ -57,13 +58,13 @@ def holdout_start(settings):
     return pd.Timestamp(str(settings["periods"]["holdout"]["start"])).tz_localize(LONDON).tz_convert("UTC")
 
 
-def load_bars(symbol, tf, start, end, holdout_from):
-    """Bars with start <= time_utc < end. Refuses any window that reaches the holdout."""
+def load_bars(symbol, tf, start, end, holdout_from, purpose=None, confirm=None):
+    """Bars with start <= time_utc < end. Refuses any window that reaches the holdout, and
+    (via src/data_access.py) any window before 2022-01-01 unless confirmed."""
     if end > holdout_from:
         raise ValueError(f"window end {end} reaches into the holdout period ({holdout_from}) — not allowed")
     cols = ["time_utc", "open", "high", "low", "close", "spread_used", "spread_estimated"]
-    bars = pd.read_parquet(PROCESSED / f"{symbol}_{tf}.parquet", columns=cols)
-    bars = bars[(bars.time_utc >= start) & (bars.time_utc < end)].reset_index(drop=True)
+    bars = read_prices(symbol, tf, start, end, columns=cols, purpose=purpose, confirm=confirm).reset_index(drop=True)
     assert bars.time_utc.max() < holdout_from
     return bars
 

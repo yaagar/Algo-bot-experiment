@@ -59,7 +59,8 @@ def overall(t):
             "exp_r": float(t.net_r.mean()) if n else float("nan"), "gross_r": float(t.r_multiple.mean()) if n else float("nan")}
 
 
-def main():
+def main(purpose, confirm):
+    """Reads 2010-2021: refused unless Yash's one-time confirmation is passed (src/data_access.py)."""
     t0 = time.time()
     settings = load_settings()
     symbol = settings["mt5"]["symbol"]
@@ -67,7 +68,7 @@ def main():
     point, contract = meta["point"], meta["contract_size"]
     start, end = london_window(FIRST, LAST)
     print(f"4c window (UTC): {start} -> {end}")
-    m1 = load_bars(symbol, "M1", start, end, end)          # nothing after 2021-12-31
+    m1 = load_bars(symbol, "M1", start, end, end, purpose, confirm)   # nothing after 2021-12-31
     calendar = pd.read_parquet(CALENDAR_PATH)
     events = Events(calendar.time_utc)
     p = Params.from_settings(settings)
@@ -81,7 +82,7 @@ def main():
 
     days, bots = {}, {}
     for tf, tf_min in TFS.items():
-        days[tf] = build_days(m1, load_bars(symbol, tf, start, end, end), point)
+        days[tf] = build_days(m1, load_bars(symbol, tf, start, end, end, purpose, confirm), point)
         trend = trend_up_tags([d.date for d in days[tf]], daily_closes(m1)).to_dict()
         bots[tf] = {"A": bot_a_chooser(tf_min), "A + with-trend": with_trend_chooser(bot_a_chooser(tf_min), trend)}
 
@@ -207,4 +208,9 @@ def write_report(official, nokill, c1_nokill, info_2026):
 
 
 if __name__ == "__main__":
-    main()
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--purpose", required=True)
+    ap.add_argument("--confirm", required=True)
+    a = ap.parse_args()
+    main(a.purpose, a.confirm)

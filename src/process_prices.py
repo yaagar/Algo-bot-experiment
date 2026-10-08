@@ -7,14 +7,15 @@ import json
 import pandas as pd
 
 from src.config import PROJECT_ROOT, load_settings
+from src.data_access import read_full_file_for_data_prep
 from src.timeutils import server_offset_hours, server_to_utc
 
 RAW_DIR = PROJECT_ROOT / "data" / "raw"
 OUT_DIR = PROJECT_ROOT / "data" / "processed"
 
 
-def process(symbol, tf):
-    raw = pd.read_parquet(RAW_DIR / f"{symbol}_{tf}.parquet")
+def process(symbol, tf, purpose=None, confirm=None):
+    raw = read_full_file_for_data_prep(RAW_DIR / f"{symbol}_{tf}.parquet", purpose, confirm)
     bars = raw.copy()
     bars.insert(0, "time_utc", server_to_utc(bars.time_server))   # tz-aware UTC
     bars.insert(1, "server_offset_h", server_offset_hours(bars.time_server).values)
@@ -31,13 +32,19 @@ def process(symbol, tf):
     }
 
 
-def main():
+def main(purpose=None, confirm=None):
+    """Rewrites whole files, so it reaches the reserved period: needs Yash's confirmation."""
     symbol = load_settings()["mt5"]["symbol"]
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    summary = {tf: process(symbol, tf) for tf in ("H1", "M15", "M1")}
+    summary = {tf: process(symbol, tf, purpose, confirm) for tf in ("H1", "M15", "M1")}
     (OUT_DIR / f"{symbol}_coverage.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
     print(json.dumps(summary, indent=2))
 
 
 if __name__ == "__main__":
-    main()
+    import argparse
+    ap = argparse.ArgumentParser(description="Reaches the reserved pre-2022 period: needs --purpose and --confirm (see src/data_access.py).")
+    ap.add_argument("--purpose")
+    ap.add_argument("--confirm")
+    a = ap.parse_args()
+    main(a.purpose, a.confirm)

@@ -23,6 +23,7 @@ import requests
 from pandas.tseries.holiday import USFederalHolidayCalendar
 
 from src.config import PROJECT_ROOT
+from src.data_access import read_forex_factory_from_2022
 from src.timeutils import NEW_YORK
 
 RAW = PROJECT_ROOT / "data" / "raw" / "calendar"
@@ -84,6 +85,8 @@ def fomc_dates():
     decisions, minutes = [], []
     for block in re.split(r"(?=\b20\d\d FOMC Meetings)", text)[1:]:
         year = int(block[:4])
+        if year < FROM.year:              # skip reserved-period years before parsing
+            continue
         for m in re.finditer(r"\| ([A-Z][a-z]+(?:/[A-Z][a-z]+)?) \| \| \| (\d+)-(\d+)\*? \|", block):
             month_name = m.group(1).split("/")[-1]       # "Apr/May" meetings end in May
             for fmt in ("%B %d %Y", "%b %d %Y"):
@@ -223,7 +226,7 @@ def load_forex_factory_usd_high():
     Tehran wall-clock, re-labelled with the real Tehran rule. Rows whose time
     was lost (shown 00:00 / 23:59:59) get time_utc = NaT, time_status='unknown'.
     """
-    df = pd.read_csv(RAW / "forex_factory_cache.csv")
+    df = read_forex_factory_from_2022(RAW / "forex_factory_cache.csv")
     df = df[(df.Currency == "USD") & df.Impact.str.startswith("High")]
     wall = df.DateTime.str[:19]
     df, wall = df[pd.to_datetime(wall) >= FROM], wall[pd.to_datetime(wall) >= FROM]

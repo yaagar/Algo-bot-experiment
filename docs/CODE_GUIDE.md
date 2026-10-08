@@ -37,6 +37,11 @@ MT5 (OANDA MetaTrader 5, logged in to the FTMO trial) must be open for anything 
 
 ## What each code file does
 
+**`data_access.py`** — the ONLY place price data is read. Anything before 2022-01-01 (reserved for
+Phase 4c) is refused unless called with a purpose and a confirmation sentence carrying today's date;
+each confirmed use is logged in `results/data_access_log.md`. `tests/test_data_lock.py` fails if any other
+module reads price files or pulls MT5 history without this check.
+
 **`config.py`** — reads `settings.yaml`; `commission_usd()` = lots × 100 oz × price × 0.0007%, per fill.
 
 **`data_mt5.py`** — the only file that talks to MT5, read-only. Connects, finds gold,

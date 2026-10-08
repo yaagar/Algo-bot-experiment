@@ -12,3 +12,5 @@ Order changed by spec v1.6: Phase 5 (Claude filter on plain Bot A) runs before 4
 
 Phase 5 done 2026-10-08 (B not better than A in any of the 6 cases; report `results/phase5/phase5_report.md`).
 3. Phase 6 paper forward test: design proposed in `results/phase6_design.md`; needs Yash's decisions (section 7) before building.
+
+2026-10-08: hard lock on pre-2022 data added (`src/data_access.py`). Running 4c (and re-running `pull_prices`, `process_prices` or `spread_model`) now needs `--purpose` and `--confirm "I confirm one-time use of pre-2022 data on <today> for: <purpose>"`, given only after Yash approves. Audit and period record: `results/period_usage.md`, `results/data_access_log.md`.
