@@ -149,3 +149,7 @@ At 5% and 8% target vol on $10k, $25k and $50k Swing accounts, real lot rules:
   (c) Margin cap: total required margin (Σ |lots × contract × price| in USD / 30) ≤ 100% of current equity.
   (d) Accounting MT5-style: netting by average price; reducing a position realises P/L on the reduced lots into balance; commission hits balance at each fill; swap accrues on the open position (in equity) and moves to balance pro rata when lots are closed.
 - v1.4 — 2026-10-08 — §9 information rows: add $100k and $200k account sizes because of the E6-1 min-lot mechanics finding. Reporting only; no rule, signal, sizing or pass criterion changes. Note: during E6-1 debugging a breach of the 90% floor in Oct 2023 on the $100k test account was seen; no code or rule was changed because of it.
+- v1.5 — 2026-10-08 — Scoring clarifications approved by Yash before any E6-2 result.
+  (a) Daily-return series (gate Sharpe, per-year, DSR): every broker day from the first tradeable day (2022-12-21) to 2025-12-31; days without positions inside that range = 0. Daily return = change in equity at the broker-day close ÷ capital.
+  (b) Deflated Sharpe (information in the gate, criterion in the exam), N = 77: V = max(variance of daily Sharpe across the 8 Exp 6 ledger configurations, sampling variance of the main configuration's Sharpe incl. skew/kurtosis); report which term won (Exp 4 method).
+  (c) Cost share: costs = spread paid + commission + net swap paid (credits reduce it); gross profit = net profit + costs.
