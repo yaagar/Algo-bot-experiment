@@ -1,6 +1,7 @@
 """Experiment 7 runner (spec v1.0). Phase e7_1 = build & verify: no outcomes are printed or saved.
 
     .venv/Scripts/python -m src.exp7.run e7_1
+    .venv/Scripts/python -m src.exp7.run e7_2      (development run, once)
 
 E7-0 (counts, spec v0.9 / v0.10) ran from earlier versions of this file; see git history.
 """
@@ -179,7 +180,18 @@ def run_e7_1(cfg):
     print(json.dumps(report, indent=1, default=str))
 
 
-PHASES = {"e7_1": run_e7_1}
+def run_e7_2(cfg):
+    """Development run, ONCE (spec v1.0 §4-§5): M1, C1/C2, stresses, variants, M2, Deflated Sharpe."""
+    from src.exp7.evaluate import evaluate
+    data = load(cfg)
+    out, trades = evaluate(data, cfg, cfg["ledger_n"])
+    RESULTS.mkdir(parents=True, exist_ok=True)
+    trades.drop(columns=["month"]).to_csv(RESULTS / "e7_2_trades.csv", index=False)
+    (RESULTS / "e7_2_results.json").write_text(json.dumps(out, indent=1, default=str))
+    print(json.dumps({"m1": out["m1"], "verdict": out["m1_verdict"]}, default=str))
+
+
+PHASES = {"e7_1": run_e7_1, "e7_2": run_e7_2}
 
 if __name__ == "__main__":
     phase = sys.argv[1] if len(sys.argv) > 1 else ""

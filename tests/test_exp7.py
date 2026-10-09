@@ -154,3 +154,15 @@ def test_logistic_fit_is_at_the_penalised_optimum():
     p = predict(w, x)
     grad = np.column_stack([np.ones(300), x]).T @ (p - y) + np.r_[0, w[1:]]
     assert np.abs(grad).max() < 1e-6 and w[1] > 1 and abs(w[2]) < 0.5
+
+
+def test_e7_2_scoring_runs_end_to_end_on_synthetic_data():
+    from src.exp7.evaluate import evaluate
+    from src.exp7.system import Exp7Data
+    m1 = synthetic_m1()
+    cfg = {**CFG, **LOOSE, "cost_guard_max_spread_frac": 0.10,
+           "periods": {"development": {"start": "2024-03-01", "end": "2024-06-01"}}}
+    data = Exp7Data(m1, h1_of(m1), Events(pd.Series([], dtype="datetime64[ns, UTC]")), np.array([np.nan] + [0.00012] * 23))
+    out, t = evaluate(data, cfg, n_trials=85, seeds=3)
+    assert out["m1"]["trades"] == len(t) > 10 and set(out["criteria"]) and out["m1_verdict"] in ("PASS", "FAIL")
+    assert len(out["variants"]) == 6 and 0 <= out["dsr"]["dsr"] <= 1

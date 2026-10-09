@@ -36,6 +36,7 @@ news_blackout_min: 5
 time_exit_london: "20:00"
 
 seeds: 1000                   # C1 and C2 seeds each
+ledger_n: 85                  # results/trial_ledger.md N for the Deflated Sharpe (2026-10-09)
 m2:                           # meta-labeling layer (spec §5), no tuning
   l2_c: 1.0
   threshold: 0.40
