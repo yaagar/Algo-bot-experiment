@@ -1,0 +1,54 @@
+{
+ "candidates": 13364,
+ "qualifying": 144,
+ "per_year": {
+  "2022": 20,
+  "2023": 12,
+  "2024": 24,
+  "2025": 88
+ },
+ "per_direction": {
+  "long": 114,
+  "short": 30
+ },
+ "per_month": {
+  "median": 2.0,
+  "min": 0,
+  "max": 17,
+  "months_with_zero": 14
+ },
+ "days_with_setup": 84,
+ "first_block": {
+  "no_trend": 12201,
+  "weak_tstat": 236,
+  "no_box": 301,
+  "false_breaks": 57,
+  "choppy": 16,
+  "box_too_tall": 152,
+  "cost_guard": 189,
+  "news": 1,
+  "hours": 67
+ },
+ "fails_rule": {
+  "no_trend": 12201,
+  "weak_tstat": 7354,
+  "no_box": 4167,
+  "false_breaks": 834,
+  "choppy": 292,
+  "box_too_tall": 3713,
+  "cost_guard": 6096,
+  "news": 77,
+  "hours": 4596
+ },
+ "box_rules_base": 9197,
+ "stop_dist_usd": {
+  "median": 8.980000000000473,
+  "p25": 7.048749999999927,
+  "p75": 12.37124999999969
+ },
+ "spread_over_stop_median": 0.06472817679682705,
+ "target_kind_pct": {
+  "2R_no_zone": 75.7,
+  "2R_zone_under_1R": 24.3
+ }
+}

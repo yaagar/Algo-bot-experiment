@@ -1,0 +1,30 @@
+# Experiment 7 numbers (docs/EXPERIMENT_7_SPEC.md v0.9 DRAFT). Copied from the spec; never tuned.
+symbol: XAUUSD.sim
+m1_file: XAUUSD.sim_M1.parquet          # data/processed/ (M15 is built from M1)
+h1_file: XAUUSD.sim_H1.parquet          # broker H1 bars
+tick_spreads: results/exp6/e6_0_tick_spreads.json
+tick_spread_symbol: XAUUSD.sim
+
+periods:
+  development: {start: "2022-01-01", end: "2026-01-01"}    # [start, end) UTC
+
+swing_bars: 5                 # §3 swing = highest high / lowest low of the 5 H1 bars centred on it
+trend_swings: 3               # last 3 swing highs rising AND last 3 swing lows rising
+tstat_bars: 48                # OLS slope of the last 48 H1 closes
+tstat_min: 2.0
+atr_bars: 14                  # ATR(14, H1) and ATR(14, M15), Wilder smoothing
+box_min_bars: 6
+box_max_range_atr_h1: 1.5     # combined high-low of the box run <= 1.5 x ATR(14, H1)
+max_false_breaks: 1           # more than 1 blocks
+chop_bars: 14
+chop_max: 61.8
+box_max_height_atr_m15: 3.0
+stop_min_atr_m15: 1.0
+round_level: 10.0             # round $10 levels
+round_buffer: 0.5             # $0.50
+target_lookback_days: 5       # trading days (London dates), including the breakout's own day
+target_min_r: 1.0
+target_fallback_r: 2.0
+cost_guard_max_spread_frac: 0.10
+entry_hours_london: ["07:00", "20:00"]   # fill time in [07:00, 20:00) London
+news_blackout_min: 5
