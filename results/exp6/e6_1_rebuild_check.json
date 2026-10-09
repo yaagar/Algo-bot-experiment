@@ -1,0 +1,17 @@
+{
+ "days_engine": 1041,
+ "days_rebuild": 1041,
+ "same_days": true,
+ "max_diff_forecast_f": 0.0,
+ "max_diff_target_lots": 1.509903313490213e-14,
+ "max_diff_position_lots_6dp": 0.0,
+ "max_diff_equity_at_close_usd": 1.7462298274040222e-10,
+ "fills_engine": 2645,
+ "fills_rebuild": 2645,
+ "max_diff_fill_price": 0.0,
+ "prague_days_engine": 1249,
+ "prague_days_rebuild": 1249,
+ "max_diff_ftmo_start_balance_usd": 1.6007106751203537e-10,
+ "max_diff_ftmo_min_equity_usd": 1.7462298274040222e-10,
+ "ftmo_breach_days_identical": true
+}

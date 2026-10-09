@@ -61,3 +61,14 @@ MT5 (logged in to the FTMO trial) must be open for anything marked *MT5*.
 | `system.py` | Entry/exit/size rules on the Exp 2 engine (`E4Engine` adds forecast sizing, no fill after flat-by). |
 | `rebuild.py` | Independent rebuild of signals, gates and F (no shared code); must match every bar. |
 | `run.py` | The one runner: `python -m src.exp4.run e4_1` (later phases add steps here). |
+
+## Experiment 6 (`src/exp6/`, numbers in `config/exp6.yaml`)
+| Module | What it does |
+|---|---|
+| `pull_data.py` | MT5: symbol inventory, FTMO D1/H1 2022+, MetaQuotes FX 2022+, 2026 tick-spread table. |
+| `costs.py` | Locked swap table and the §3 cost screen. |
+| `data.py` | Universe for a period: H1 bars, broker-day closes, USD conversion, tick spreads per server hour. |
+| `signals.py` | Trend signs 21/63/252, forecast, class-split sizing, portfolio scaler, buffer. |
+| `engine.py` | Portfolio account: fills at 10:00 NY, swaps, netting, hourly FTMO checks (`ftmo_rules.PortfolioLimits`). |
+| `c1.py` / `rebuild.py` | C1 random-sign forecasts; independent rebuild (no shared engine code). |
+| `run.py` | The one runner: `screen`, `e6_1` (later phases add steps). |

@@ -25,11 +25,12 @@ different cost assumption) — listed for completeness.
 | 11 | Exp 3 E3-2 | Donchian 55/20 daily on 8 single markets (gold, silver, WTI, S&P 500, Nasdaq 100, EURUSD, USDJPY, AUDUSD) | 8 |
 | 12 | Exp 3 E3-2 | The 8-market portfolio | 1 |
 | 13 | Exp 4 (pre-declared, spec §7) | Main; entry 0.20 / 0.40; stop 1.0 / 2.0 × ATR; A only, B only, C only, D only; no gates | 10 |
-| | | **Total** | **69** |
+| 14 | Exp 6 (pre-declared, spec §7; added 2026-10-08 in E6-1 before any Exp 6 result) | Main; lookback 21 / 63 / 252 only; buffer 0% / 50%; execution 12:00 New York; long-only benchmark | 8 |
+| | | **Total** | **77** |
 
-**N for the Deflated Sharpe Ratio = max(69, 50) = 69.**
+**N for the Deflated Sharpe Ratio = max(77, 50) = 77** (Exp 4 used N = 69, before row 14 existed).
 
-Not counted: C1 random-direction controls (Exp 1–3), C2 random-veto control (Exp 1 Phase 5), cost stresses
+Not counted: C1 random-direction controls (Exp 1–4, 6), the Exp 6 cost stress, C2 random-veto control (Exp 1 Phase 5), cost stresses
 (1.5× spread, higher commission, 1.5× swap), the timeframe bootstrap (re-analysis of existing trades, no new rules).
 Checked 2026-10-08 (E4-1b): `src/exp2/regime.py` only labels months as a market description (no trade rules) and `src/exp3/sanity.py` re-computes the already-counted Donchian 55/20 rule — neither adds a rule set; count unchanged.
 

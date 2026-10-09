@@ -1,0 +1,37 @@
+{
+ "leak_cuts": 20,
+ "leak_identical": 20,
+ "leak_min_changed_after": 2221,
+ "peak_margin_use_pct_of_equity": 6.71,
+ "c1_smoke": [
+  {
+   "seed": 0,
+   "fills": 2234,
+   "days_sign_flipped": 6777,
+   "same_magnitudes": true
+  },
+  {
+   "seed": 1,
+   "fills": 2219,
+   "days_sign_flipped": 6975,
+   "same_magnitudes": true
+  },
+  {
+   "seed": 2,
+   "fills": 2237,
+   "days_sign_flipped": 7234,
+   "same_magnitudes": true
+  }
+ ],
+ "variant_fills": {
+  "main": 2645,
+  "lookback_21": 1644,
+  "lookback_63": 1041,
+  "lookback_252": 633,
+  "buffer_0": 14080,
+  "buffer_50": 2449,
+  "exec_12ny": 2645,
+  "long_only": 195,
+  "cost_stress": 2645
+ }
+}

@@ -1,4 +1,4 @@
-# Experiment 6 — numbers mirror docs/EXPERIMENT_6_SPEC.md v1.1 (LOCKED).
+# Experiment 6 — numbers mirror docs/EXPERIMENT_6_SPEC.md v1.3 (LOCKED).
 # Do not change a value without an approved, dated Change Log entry in the spec.
 
 periods:                                   # spec §7 (end = exclusive UTC instant)
@@ -34,3 +34,58 @@ screen:                                    # spec §3
   spread_hour_ny: 10
   spread_percentile: 0.75
   fx_full_coverage_max_gap_days: 5         # MetaQuotes H1: no hole longer than 5 days (holidays < 5)
+
+# --- E6-1 system (spec §4-§7 + Change Log v1.1-v1.3) ------------------------------------------
+
+universe:                                  # the 18 markets that passed the §3 cost screen (E6-0c)
+  FX: [GBPUSD.sim, AUDUSD.sim, EURJPY.sim, NZDUSD.sim, AUDCAD.sim, USDZAR.sim, USDPLN.sim, USDNOK.sim,
+       CHFJPY.sim, EURCAD.sim, EURNZD.sim, EURSEK.sim, GBPAUD.sim, NZDCAD.sim]
+  Index: [US100.sim, US30.sim]
+  Commodity: [USOIL.sim]
+  Metal: [XAGUSD.sim]
+
+signal:                                    # §4
+  lookbacks: [21, 63, 252]                 # trading days
+
+sizing:                                    # §5 + v1.1(b) + v1.3
+  capital: 100000                          # notional, fractional lots (v1.3 a); results are % of capital
+  target_vol: 0.10                         # annual, edge verdict
+  vol_days: 60                             # past-only std of daily price changes
+  cov_days: 60                             # past-only covariance for the portfolio scaler
+  max_scaler: 2.0
+  leverage: 30                             # §2: 1:30 on every symbol; margin <= 100% of equity (v1.3 c)
+  buffer: 0.25                             # of the full unit (|f| = 1)
+  ftmo_sizes:                              # §9 sizes, for the mechanics table's would-be min-lot skips
+    - {capital: 10000, target_vol: 0.05}
+    - {capital: 10000, target_vol: 0.08}
+    - {capital: 25000, target_vol: 0.05}
+    - {capital: 25000, target_vol: 0.08}
+    - {capital: 50000, target_vol: 0.05}
+    - {capital: 50000, target_vol: 0.08}
+
+execution:                                 # §6
+  fill_hour_ny: 10                         # open of the 10:00 New York H1 bar, next trading day
+  rollover_hour_ny: 17                     # broker-day end / swap
+  spread_mult: 1.0
+  swap_charge_mult: 1.0
+  commission_mult: 1.0
+  slippage_ticks: 0
+
+ftmo:                                      # §2 + v1.1(e)
+  initial: 100000                          # = sizing.capital for E6-1 checks
+  daily_loss_pct: 5
+  max_loss_pct: 10
+  reset_tz: Europe/Prague
+
+c1_seeds: 1000
+
+variants:                                  # §7; each overrides keys of the main configuration
+  main: {}
+  lookback_21: {signal: {lookbacks: [21]}}
+  lookback_63: {signal: {lookbacks: [63]}}
+  lookback_252: {signal: {lookbacks: [252]}}
+  buffer_0: {sizing: {buffer: 0.0}}
+  buffer_50: {sizing: {buffer: 0.50}}
+  exec_12ny: {execution: {fill_hour_ny: 12}}
+  long_only: {long_only: true}             # benchmark: f = +1 whenever tradeable
+  cost_stress: {execution: {spread_mult: 1.5, swap_charge_mult: 1.5, commission_mult: 2.0, slippage_ticks: 1}}
