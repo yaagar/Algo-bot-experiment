@@ -1,0 +1,36 @@
+# Experiment 6 — numbers mirror docs/EXPERIMENT_6_SPEC.md v1.1 (LOCKED).
+# Do not change a value without an approved, dated Change Log entry in the spec.
+
+periods:                                   # spec §7 (end = exclusive UTC instant)
+  gate: {start: "2022-01-01", end: "2026-01-01"}
+  recent_info: {start: "2026-01-01", end: null}
+
+classes:                                   # Change Log v1.1 (b): risk split equally across these 3 classes
+  FX: FX
+  Index: Indices
+  Metal: Commodities
+  Commodity: Commodities
+
+commission:                                # Change Log v1.1 (d), per side
+  Metal: {pct: 0.0007}
+  FX: {usd_per_lot: 2.50}
+  Index: {pct: 0.0}
+  Commodity: {pct: 0.001}
+
+triple_swap_day:                           # Change Log v1.1 (c)
+  FX: Wednesday
+  Metal: Wednesday
+  Index: Friday
+  Commodity: Friday
+
+swap_days_per_year: 360                    # MT5 swap mode 5 = annual % of price; project convention (Exp 2/3)
+
+screen:                                    # spec §3
+  min_history_years: 3                     # daily history inside 2022-2025
+  max_cost_ratio: 0.10
+  max_carry_ratio: 0.30
+  min_markets: 8
+  atr_days: 20
+  spread_hour_ny: 10
+  spread_percentile: 0.75
+  fx_full_coverage_max_gap_days: 5         # MetaQuotes H1: no hole longer than 5 days (holidays < 5)

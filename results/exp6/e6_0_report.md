@@ -15,3 +15,9 @@ Clock: live tick offset UTC+3 on 2026-10-09 (NY+7 holds); server follows US DST 
 
 Pre-2022 for E6-3 (not touched): exist — broker H1+M1 US100, US500, USOIL, XAGUSD; gold in `data/processed/XAUUSD.sim_*`; MetaQuotes H1 EURUSD, USDJPY, AUDUSD.
 Missing — US30 (broker) and the 39 other FX pairs (MetaQuotes or other source).
+
+## E6-0b (Change Log v1.1) — MetaQuotes FX, swap lock, cost screen (no returns)
+- MetaQuotes-Demo offers all 42 FTMO FX pairs from 2022-01-02; 41 have full 2022–2025 coverage (largest H1 hole ≤ 73 h). Excluded: GBPNZD (159 h hole). File: `e6_0_metaquotes_fx_coverage.csv`.
+- Swap: both snapshots swap_mode 5 (annual % of price), so the US500/US100 change is a rate change, not units. Long + short stays −5.00 in both (benchmark moved, 2.5% markup kept) — not explained by swap_mode → costlier per side locked: US500 −5.97 / −2.95, US100 −6.06 / +0.58. All other symbols identical or single snapshot. `e6_0_swaps_locked.csv` ($ per lot per night at latest close).
+- Cost screen `e6_0_cost_screen.csv`: 15 pass — FX 11 / 41, Indices 2 / 3 (US100, US30), Commodities 2 / 3 (USOIL, XAG). Most exclusions are carry_ratio.
+- **Open:** FTMO FX H1 bar spreads are 0 on 92–97% of 2026 bars (MT5 bar spread = minimum in the bar); 9 majors have no non-zero 10:00 NY spread at all → cost_ratio undefined, marked "no 2026 spread at 10:00 NY", not included. 3 of them (GBPUSD, AUDUSD, NZDUSD) pass carry. FX spread method needs Yash's decision.

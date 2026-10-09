@@ -8,7 +8,12 @@ Read-only (no order or margin calls: tests/test_phase1.py bans them). MT5's Pyth
 trading-session call, so sessions are described from the hours that have H1 bars in 2026.
 Never reads anything before 2022-01-01 (checked by src/data_access.py).
 
-Run:  .venv/Scripts/python -m src.exp6.pull_data
+Run:  .venv/Scripts/python -m src.exp6.pull_data                 (FTMO terminal: inventory + bars)
+      .venv/Scripts/python -m src.exp6.pull_data --metaquotes    (FX prices, MetaQuotes-Demo terminal)
+
+Change Log v1.1 (a): FX PRICES for 2022+ come from MetaQuotes-Demo (the FTMO account's FX history only
+starts 2025-05-19); FX COSTS stay FTMO's. MetaQuotes' server clock follows European summer time, so its
+bars go through exp3's to_utc_metaquotes; daily bars are later rebuilt from H1 at New York 17:00.
 """
 import json
 from datetime import datetime, timezone
@@ -20,7 +25,7 @@ import pandas as pd
 from src import data_mt5
 from src.config import PROJECT_ROOT, load_settings
 from src.data_access import check_window
-from src.exp3.pull_data import to_utc
+from src.exp3.pull_data import METAQUOTES_TERMINAL, to_utc, to_utc_metaquotes
 from src.timeutils import NEW_YORK
 
 START = datetime(2022, 1, 1, tzinfo=timezone.utc)
@@ -122,5 +127,47 @@ def main():
     pd.DataFrame(out["symbols"]).to_csv(RESULTS / "e6_0_symbols.csv", index=False)
 
 
+def pull_metaquotes_fx(terminal_path=METAQUOTES_TERMINAL):
+    """D1 + H1 from 2022-01-01 for every FTMO FX pair MetaQuotes-Demo offers (name without '.sim')."""
+    check_window(START, None, "Experiment 6 MetaQuotes-Demo FX download")      # 2022+ only
+    ftmo = pd.read_csv(RESULTS / "e6_0_symbols.csv")
+    pairs = [s.replace(".sim", "") for s in ftmo[ftmo["class"] == "FX"].symbol]
+    account = data_mt5.connect(terminal_path)
+    if account.server != "MetaQuotes-Demo":
+        data_mt5.disconnect()
+        raise ConnectionError(f"expected MetaQuotes-Demo, terminal is on {account.server}")
+    raw_dir, out_dir = RAW / "metaquotes", PROCESSED / "metaquotes"
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    now = datetime.now(timezone.utc)
+    offered = {s.name for s in mt5.symbols_get() or []}
+    rows = []
+    try:
+        for pair in pairs:
+            if pair not in offered:
+                rows.append({"pair": pair, "offered": False})
+                continue
+            mt5.symbol_select(pair, True)
+            rec = {"pair": pair, "offered": True}
+            for tf in ("D1", "H1"):
+                raw = data_mt5.pull_rates(pair, tf, START, now)
+                if raw.empty:
+                    continue
+                raw.to_parquet(raw_dir / f"{pair}_{tf}.parquet", index=False)
+                bars = to_utc_metaquotes(raw)
+                bars.to_parquet(out_dir / f"{pair}_{tf}.parquet", index=False)
+                rec[f"{tf}_first_utc"], rec[f"{tf}_last_utc"], rec[f"{tf}_bars"] = str(bars.time_utc.min()), str(bars.time_utc.max()), len(bars)
+                if tf == "H1":
+                    gaps = bars.time_utc.diff().dt.total_seconds().div(3600)
+                    rec["H1_largest_gap_h"] = float(gaps.max())
+                    rec["H1_gaps_over_72h"] = int((gaps > 72).sum())          # longer than a weekend
+            rows.append(rec)
+            print(pair, rec.get("H1_first_utc", "no data")[:10], rec.get("H1_last_utc", "")[:10], flush=True)
+    finally:
+        data_mt5.disconnect()
+    pd.DataFrame(rows).to_csv(RESULTS / "e6_0_metaquotes_fx_coverage.csv", index=False)
+
+
 if __name__ == "__main__":
-    main()
+    import sys
+    pull_metaquotes_fx() if "--metaquotes" in sys.argv else main()
