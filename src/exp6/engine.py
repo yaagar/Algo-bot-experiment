@@ -35,20 +35,37 @@ def next_weekday(dates):
     return (d + pd.to_timedelta(step, unit="D")).to_numpy().astype("datetime64[D]")
 
 
+def attribution(acct, marks, usd_ppu, mk):
+    """Reporting only: per market, cumulative net P&L, commission and swap (booked + accrued) in $."""
+    floating = np.where(acct.lots != 0, (marks - acct.avg) * acct.lots * usd_ppu, 0.0)
+    out = {}
+    for i, m in enumerate(mk):
+        out[f"net_{m.symbol}"] = acct.realized[i] + floating[i] - acct.commission[i] + acct.swap_booked[i] + acct.swap[i]
+        out[f"comm_{m.symbol}"] = acct.commission[i]
+        out[f"swap_{m.symbol}"] = acct.swap_booked[i] + acct.swap[i]
+    return out
+
+
 class Account:
     def __init__(self, n, capital):
         self.balance = float(capital)
         self.lots, self.avg, self.swap = np.zeros(n), np.zeros(n), np.zeros(n)
+        # reporting only (E6-2 attribution; never read by the trading logic)
+        self.realized, self.commission, self.swap_booked = np.zeros(n), np.zeros(n), np.zeros(n)
 
     def fill(self, i, new_lots, price, usd_ppu, commission):
         q = self.lots[i]
         d = new_lots - q
         self.balance -= commission
+        self.commission[i] += commission
         if q != 0 and np.sign(d) != np.sign(q):                      # reducing or flipping
             closed = min(abs(d), abs(q))
-            self.balance += np.sign(q) * closed * (price - self.avg[i]) * usd_ppu
+            pnl = np.sign(q) * closed * (price - self.avg[i]) * usd_ppu
+            self.balance += pnl
+            self.realized[i] += pnl
             share = self.swap[i] * closed / abs(q)
             self.balance += share
+            self.swap_booked[i] += share
             self.swap[i] -= share
         if new_lots == 0:
             self.avg[i] = 0.0
@@ -158,6 +175,7 @@ def run(u, cfg, f_override=None):
             margin = float(np.sum(np.abs(acct.lots) * notional)) / sc["leverage"]
             res.daily.append({"day": D, "t": t, "equity": equity, "balance": acct.balance, "scaler": scaler,
                               "margin_used": margin, "n_tradeable": int(tradeable.sum()),
+                              **attribution(acct, marks_close(last_hour), usd_ppu, mk),
                               **{f"f_{m.symbol}": f[i] for i, m in enumerate(mk)},
                               **{f"target_{m.symbol}": target[i] for i, m in enumerate(mk)}})
             res.decisions.append((t, "eq", round(equity, 4)))
@@ -183,7 +201,7 @@ def run(u, cfg, f_override=None):
                 swap_before = acct.swap[i]
                 acct.fill(i, new_lots, price, usd_ppu[i], comm)
                 res.fills.append({"symbol": m.symbol, "t": t, "decision_day": days[k_day], "lots_before": new_lots - d,
-                                  "lots_after": new_lots, "price": price, "bid_open": m.o[j], "spread": spread,
+                                  "lots_after": new_lots, "price": price, "bid_open": m.o[j], "spread": spread, "usd_ppu": usd_ppu[i], "slippage": slip[i],
                                   "commission_usd": comm, "swap_accrued_before": swap_before})
                 res.decisions.append((t, "fill", m.symbol, round(float(new_lots), 6), round(float(price), 8)))
             worst[i] = m.l[j] if acct.lots[i] > 0 else (m.h[j] + spread if acct.lots[i] < 0 else m.c[j])

@@ -211,5 +211,110 @@ def e6_1():
     print(json.dumps(rb))
 
 
+# --- E6-2 gate run (spec §7-§8, Change Log v1.4-v1.5) ------------------------------------------
+
+N_TRIALS = 77                            # results/trial_ledger.md
+LEDGER_CONFIGS = ("main", "lookback_21", "lookback_63", "lookback_252", "buffer_0", "buffer_50", "exec_12ny", "long_only")
+_C1 = {}
+
+
+def _c1_init():
+    cfg = data.load_config()
+    u = data.load_universe(cfg, "gate")
+    _, sig = engine.run(u, cfg)
+    _C1.update(cfg=cfg, u=u, sig=sig)
+
+
+def _c1_total_return(seed):
+    cfg, u, sig = _C1["cfg"], _C1["u"], _C1["sig"]
+    res, _ = engine.run(u, cfg, f_override=c1_forecasts(sig, [m.symbol for m in u.markets], seed))
+    return seed, (res.daily[-1]["equity"] - cfg["sizing"]["capital"]) / cfg["sizing"]["capital"]
+
+
+def e6_2():
+    from concurrent.futures import ProcessPoolExecutor
+    from src.exp6 import evaluate as ev
+
+    cfg = data.load_config()
+    cap = cfg["sizing"]["capital"]
+    frames = data.load_frames(cfg, "gate")
+    u = data.load_universe(cfg, "gate", frames)
+    symbols = [m.symbol for m in u.markets]
+    runs = {v: engine.run(u, data.variant_config(cfg, v))[0] for v in cfg["variants"]}
+    main = runs["main"]
+    # behaviour must be unchanged since 4bc4fc6 (attribution is reporting only): rebuild must still match
+    rb = rebuild_check(cfg, frames, u, main)
+    d = pd.DataFrame(main.daily)
+    gap = float(np.abs(cap + d[[f"net_{s}" for s in symbols]].sum(axis=1) - d.equity).max())
+    if not (rb["max_diff_position_lots_6dp"] == 0 and rb["fills_engine"] == rb["fills_rebuild"] and gap < 1e-6):
+        raise RuntimeError(f"engine changed or attribution off: {rb}, gap {gap}")
+    first_day = d.day[d.n_tradeable > 0].min()
+    rets = {v: ev.daily_returns(r.daily, cap, first_day) for v, r in runs.items()}
+
+    with ProcessPoolExecutor(max_workers=4, initializer=_c1_init) as pool:
+        c1 = dict(pool.map(_c1_total_return, range(cfg["c1_seeds"])))
+    c1 = pd.Series(c1).sort_index()
+
+    s_main, s_stress = ev.summary(rets["main"]), ev.summary(rets["cost_stress"])
+    costs = ev.cost_breakdown(main.daily, main.fills, symbols, cap)
+    costs["class"] = [cfg["classes"][m.cls] for m in u.markets]
+    gross, total_cost = costs.gross.sum(), costs.spread.sum() + costs.commission.sum() - costs.swap.sum()
+    beats = float((rets["main"].sum() > c1).mean())
+    dsr = ev.dsr(rets["main"], [rets[v] for v in LEDGER_CONFIGS], N_TRIALS)
+    screen_n = len(symbols)                     # the universe = markets that passed the E6-0c cost screen
+    gate = [("Markets passing the cost screen", screen_n, ">= 8", screen_n >= 8),
+            ("Net Sharpe, base costs", round(s_main["net_sharpe"], 3), "> 0", s_main["net_sharpe"] > 0),
+            ("Net Sharpe, cost stress", round(s_stress["net_sharpe"], 3), "> 0", s_stress["net_sharpe"] > 0),
+            ("Beats % of C1 (net total return, 1,000 seeds)", round(100 * beats, 1), ">= 80%", beats >= 0.80),
+            ("Costs / gross profit (when gross > 0)", round(100 * total_cost / gross, 1) if gross > 0 else "n/a (gross <= 0)",
+             "< 50%", (total_cost / gross < 0.5) if gross > 0 else True)]
+    passed = all(g[3] for g in gate)
+
+    # 2026 information only: main config, warm-up inside 2026
+    u26 = data.load_universe(cfg, "recent_info")
+    r26 = engine.run(u26, cfg)[0]
+    d26 = pd.DataFrame(r26.daily)
+    tradeable26 = int((d26.n_tradeable > 0).sum())
+
+    RESULTS.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame(rets).to_csv(RESULTS / "e6_2_daily_returns_by_config.csv")
+    c1.rename("c1_net_total_return").to_csv(RESULTS / "e6_2_c1_by_seed.csv")
+    pd.DataFrame(main.fills).to_csv(RESULTS / "e6_2_fills_main.csv", index=False)
+    costs.to_csv(RESULTS / "e6_2_costs_by_market.csv", index=False)
+    pct = lambda x: f"{100 * x / cap:+.2f}%"
+    L = ["## Gate (spec §8)", "", "| Criterion | Value | Threshold | Result |", "|---|---:|---|---|"]
+    L += [f"| {n} | {v} | {th} | {'PASS' if ok else 'FAIL'} |" for n, v, th, ok in gate]
+    L += [f"| **Overall** | | all must pass | **{'PASS' if passed else 'FAIL'}** |", "",
+          f"Deflated Sharpe (information in the gate): {dsr['dsr']:.3f}; daily Sharpe {dsr['sharpe_daily']:.4f} over {dsr['days']} days; "
+          f"V = {dsr['V']:.3e} ({dsr['V_term']} term won; cross-config {dsr['V_cross']:.3e}, sampling {dsr['V_sampling']:.3e}); N = {N_TRIALS}. "
+          f"C1 median net return {100 * c1.median():+.2f}%.", "",
+          "## Per year (main, base costs)", "", "| Year | Net return % | Net Sharpe |", "|---|---:|---:|"]
+    r = rets["main"]
+    for y in (2023, 2024, 2025):
+        ry = r[r.index.year == y]
+        L.append(f"| {y} | {100 * ry.sum():+.2f} | {ev.sharpe_ann(ry):+.2f} |")
+    L += ["", "## Per class (main, whole gate period, % of capital)", "", "| Class | Net contribution | Spread + commission | Swap (− = paid) |", "|---|---:|---:|---:|"]
+    for g, x in costs.groupby("class"):
+        L.append(f"| {g} | {pct(x.net.sum())} | {pct(-(x.spread.sum() + x.commission.sum()))} | {pct(x.swap.sum())} |")
+    L += ["", "## Robustness, benchmark, cost stress (information; the stress is a gate row)", "",
+          "| Configuration | Net Sharpe | Net return % | Max drawdown % |", "|---|---:|---:|---:|"]
+    for v in cfg["variants"]:
+        s = ev.summary(rets[v])
+        L.append(f"| {v} | {s['net_sharpe']:+.2f} | {s['net_return_pct']:+.2f} | {s['max_dd_pct']:.2f} |")
+    L += ["", "## Costs as % of gross profit (main)", ""]
+    if gross > 0:
+        L.append(f"Gross profit {pct(gross)} of capital: spread {100 * costs.spread.sum() / gross:.1f}%, commission "
+                 f"{100 * costs.commission.sum() / gross:.1f}%, net swap {100 * -costs.swap.sum() / gross:.1f}%.")
+    else:
+        L.append(f"Gross profit {pct(gross)} (≤ 0): spread {pct(costs.spread.sum())}, commission {pct(costs.commission.sum())}, "
+                 f"net swap {pct(-costs.swap.sum())} of capital paid.")
+    L += ["", f"**2026 information only:** {len(d26)} broker days loaded, {tradeable26} with any tradeable market "
+          f"(the 252-day warm-up must sit inside 2026)" + ("." if tradeable26 == 0 else
+          f"; net return {100 * (d26.equity.iloc[-1] - cap) / cap:+.2f}%.")]
+    (RESULTS / "e6_2_tables.md").write_text("\n".join(L) + "\n", encoding="utf-8")
+    (RESULTS / "e6_2_rebuild_recheck.json").write_text(json.dumps(rb, indent=1), encoding="utf-8")
+    print("written", RESULTS / "e6_2_tables.md")
+
+
 if __name__ == "__main__":
-    {"screen": run_screen, "e6_1": e6_1}[sys.argv[1]]()
+    {"screen": run_screen, "e6_1": e6_1, "e6_2": e6_2}[sys.argv[1]]()
