@@ -222,7 +222,16 @@ def rebuild(mcfg, cfg, m1, h1_broker=None):
             if s not in use or (use_gates and not (ranging if s == "D" else trending)):
                 score = 0.0
             rec[f"score_{s}"] = score
-        rec["F"] = (rec["score_A"] + rec["score_B"] + rec["score_C"] + rec["score_D"]) / 4
+        # Change Log v1.2: average over the signals in use that the regime allows
+        if not use_gates:
+            allowed = [s for s in "ABCD" if s in use]
+        elif trending:
+            allowed = [s for s in "ABC" if s in use]
+        elif ranging:
+            allowed = ["D"] if "D" in use else []
+        else:
+            allowed = []
+        rec["F"] = sum(rec[f"score_{s}"] for s in allowed) / len(allowed) if allowed else 0.0
         ratio = math.nan
         if k >= ns:
             vals = []

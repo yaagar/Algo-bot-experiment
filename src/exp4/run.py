@@ -42,9 +42,16 @@ def scramble_test(cfg, name, m1, h1, events, n_cuts=20, seed=4):
     return pd.DataFrame(rows)
 
 
-def handcheck(trades, table, n=5):
-    """n trades spread evenly through the period, with everything needed to re-derive them by hand."""
-    pick = trades.iloc[np.linspace(0, len(trades) - 1, n).round().astype(int)].copy()
+def spread_pick(frame, n):
+    return frame.iloc[np.linspace(0, len(frame) - 1, n).round().astype(int)] if len(frame) >= n else frame
+
+
+def handcheck(trades, gates_cfg, n=5, n_ranging=2):
+    """n trades spread evenly through the period, at least n_ranging of them on RANGING days
+    (efficiency < 0.30, F = D), with everything needed to re-derive them by hand."""
+    ranging = trades.info_efficiency < gates_cfg["efficiency_trend"]
+    first = spread_pick(trades[ranging], n_ranging)
+    pick = pd.concat([first, spread_pick(trades[~ranging], n - len(first))]).sort_values("signal_ns").copy()
     out = pd.DataFrame({"market": pick.market, "direction": pick.direction})
     for c in ("signal", "entry", "exit"):
         utc = pd.to_datetime(pick[f"{c}_ns"], utc=True)
@@ -79,7 +86,7 @@ def e4_1():
         rep = compare(table, rebuild(mcfg, cfg, m1, h1))
         rebuild_rows.append({"market": name, **{k: v for k, v in rep.items() if k != "max_abs_diff"},
                              **{f"max_diff_{k}": v for k, v in rep.get("max_abs_diff", {}).items()}})
-        checks.append(handcheck(trades, table))
+        checks.append(handcheck(trades, cfg["gates"]))
     RESULTS.mkdir(parents=True, exist_ok=True)
     leak = pd.concat(leak, ignore_index=True)
     leak.to_csv(RESULTS / "e4_1_leak_test.csv", index=False)

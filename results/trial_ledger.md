@@ -31,4 +31,6 @@ different cost assumption) — listed for completeness.
 
 Not counted: C1 random-direction controls (Exp 1–3), C2 random-veto control (Exp 1 Phase 5), cost stresses
 (1.5× spread, higher commission, 1.5× swap), the timeframe bootstrap (re-analysis of existing trades, no new rules).
+Checked 2026-10-08 (E4-1b): `src/exp2/regime.py` only labels months as a market description (no trade rules) and `src/exp3/sanity.py` re-computes the already-counted Donchian 55/20 rule — neither adds a rule set; count unchanged.
+
 If any further configuration is run, add a row here before computing the Deflated Sharpe Ratio.

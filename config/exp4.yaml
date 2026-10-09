@@ -1,4 +1,4 @@
-# Experiment 4 — every number here mirrors docs/EXPERIMENT_4_SPEC.md v1.1 (LOCKED).
+# Experiment 4 — every number here mirrors docs/EXPERIMENT_4_SPEC.md v1.2 (LOCKED).
 # Do not change a value without an approved, dated Change Log entry in the spec.
 # Times are local wall-clock "HH:MM" in each market's timezone.
 
@@ -22,6 +22,7 @@ markets:                                   # spec §2 + Change Log v1.1 items 1,
     contract_size: 100.0
     point: 0.001
     commission_pct_per_side: 0.0007
+    tick_size: 0.001                       # symbol_info trade_tick_size (results/exp3/market_specs.json); slippage stress v1.2 (d)
   US500:
     symbol: US500.sim
     tz: America/New_York
@@ -37,6 +38,7 @@ markets:                                   # spec §2 + Change Log v1.1 items 1,
     contract_size: 1.0
     point: 0.1
     commission_pct_per_side: 0.0
+    tick_size: 0.1                         # symbol_info trade_tick_size (results/exp3/market_specs.json); slippage stress v1.2 (d)
 
 signals:                                   # spec §3
   sigma_days: 60
@@ -52,7 +54,7 @@ gates:                                     # spec §4
   shock_mult: 3.0
   shock_days: 60
 
-trading:                                   # spec §2, §5
+trading:                                   # spec §2, §5; F denominator per Change Log v1.2 (a)-(c)
   entry_threshold: 0.30
   exit_threshold: 0.10
   full_size_forecast: 0.60

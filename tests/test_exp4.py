@@ -72,3 +72,65 @@ def test_exit_on_sign_flip_or_weak_forecast():
     assert [strat.exit_signal(i, long_pos) for i in range(4)] == [False, False, True, True]
     assert strat.signal(0).direction == 1 and strat.signal(0).info["size"] == 0.5 / 0.6
     assert strat.signal(1) is None                      # |F| < 0.30: no entry
+
+
+# --- Change Log v1.2 ---------------------------------------------------------------------------
+
+from src.exp2.engine import Costs, Order, Result
+from src.exp2.market import M1
+from src.exp4.signals import forecast
+from src.exp4.system import NO_SWAP, E4Engine
+
+
+def score_rows():
+    """Row 0 trending, row 1 ranging, row 2 unknown regime (efficiency NaN)."""
+    return pd.DataFrame({"score_A": [0.6, 0.6, 0.6], "score_B": [0.3, 0.3, 0.3], "score_C": [0.0, 0.0, 0.0],
+                         "score_D": [0.8, 0.8, 0.8], "trending": [True, False, False], "ranging": [False, True, False]})
+
+
+def test_forecast_main_averages_allowed_signals_per_regime():
+    F = forecast(score_rows(), {"A", "B", "C", "D"}, gated=True)
+    assert np.allclose(F, [(0.6 + 0.3 + 0.0) / 3, 0.8, 0.0])        # C inactive still counts as 0
+
+
+def test_forecast_single_signal_ablation_divides_by_one_with_gates():
+    assert np.allclose(forecast(score_rows(), {"A"}, gated=True), [0.6, 0.0, 0.0])
+    assert np.allclose(forecast(score_rows(), {"D"}, gated=True), [0.0, 0.8, 0.0])
+
+
+def test_forecast_no_gates_is_all_four_over_four():
+    assert np.allclose(forecast(score_rows(), {"A", "B", "C", "D"}, gated=False), [(0.6 + 0.3 + 0.8) / 4] * 3)
+
+
+def tiny_engine(slippage):
+    t = np.array([0, 60, 120], dtype=np.int64) * 10**9
+    m1 = M1(t, np.full(3, 100.0), np.full(3, 100.5), np.full(3, 99.5), np.full(3, 100.0), np.full(3, 0.2))
+    return E4Engine(m1, SimpleNamespace(within=lambda t, m: False), Costs(1.0, 0.0), NO_SWAP,
+                    risk_usd=50.0, contract=1.0, blackout_min=5, weekend_rule=False, slippage=slippage)
+
+
+def fills(direction, slippage, reason):
+    eng, res = tiny_engine(slippage), Result()
+    order = Order(direction, 0, lambda price, spread: price - direction * 2.0, time_exit_ns=10**12, info={"size": 1.0})
+    pos = eng.open_position(order, 0, 100.0, 0.2, res)
+    eng.close(pos, 60 * 10**9, 101.0, reason, res)
+    tr = res.trades[-1]
+    return tr["entry_price"], tr["stop"], tr["exit_price"]
+
+
+def test_slippage_moves_every_fill_one_tick_against_the_trader():
+    tick = 0.1
+    for direction in (1, -1):
+        for reason in ("stop", "exit signal", "time"):
+            base, slipped = fills(direction, 0.0, reason), fills(direction, tick, reason)
+            assert np.isclose(slipped[0] - base[0], direction * tick)      # entry: buy higher / sell lower
+            assert np.isclose(slipped[1] - base[1], direction * tick)      # stop measured from the actual fill
+            assert np.isclose(slipped[2] - base[2], -direction * tick)     # exit: sell lower / buy higher
+
+
+def test_stop_exit_from_m1_walk_is_slipped_too():
+    eng, res = tiny_engine(0.1), Result()
+    order = Order(1, 0, lambda price, spread: 99.6, time_exit_ns=10**12, info={"size": 1.0})
+    pos = eng.open_position(order, 0, 100.0, 0.2, res)
+    eng.close(pos, *eng.walk(pos, 0, 180 * 10**9), res)
+    assert res.trades[-1]["exit_reason"] == "stop" and np.isclose(res.trades[-1]["exit_price"], 99.6 - 0.1)

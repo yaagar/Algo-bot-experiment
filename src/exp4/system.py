@@ -7,8 +7,10 @@ stop = 1.5 x ATR(14, H1) from the fill. We exit at the next open after an H1 clo
 sign or |F| < 0.10, when the stop is hit (M1 bars, stop wins ties), or at the flat-by time.
 
 The engine (fills, spread, M1 stop checks, forced exits, costs) is Experiment 2's, unchanged.
-E4Engine only adds two things around its fill step: risk scaled by forecast strength, and a
-refusal to fill after the day's flat-by time (a data gap could otherwise push a fill to the next day).
+E4Engine only adds three things around its fills: risk scaled by forecast strength, a refusal to
+fill after the day's flat-by time (a data gap could otherwise push a fill to the next day), and the
+slippage stress (Change Log v1.2 (d)): every fill — entry, stop, signal exit, time exit — moved
+`slippage` price units (1 tick) against the trader. Base runs use slippage 0.
 """
 from collections import defaultdict
 
@@ -21,19 +23,25 @@ NO_SWAP = Swap(0.0, 0.0)          # intraday, flat every day (spec §6)
 
 
 class E4Engine(Engine):
-    def __init__(self, *args, on_fill=None, **kwargs):
+    def __init__(self, *args, on_fill=None, slippage=0.0, **kwargs):
         super().__init__(*args, **kwargs)
         self.on_fill = on_fill
+        self.slippage = slippage
 
     def open_position(self, order, fill_ns, bid, spread, res):
         if fill_ns >= order.time_exit_ns:
             return self._block(res, fill_ns, "fill at/after flat-by")
+        bid += order.direction * self.slippage        # buy higher / sell lower; the stop follows the fill
         pos = super().open_position(order, fill_ns, bid, spread, res)
         if pos is not None:
             pos.lots *= order.info["size"]          # risk = size x R; results stay in R of that trade
             if self.on_fill:
                 self.on_fill(order)
         return pos
+
+    def close(self, pos, exit_ns, price, reason, res):
+        """Every exit (stop, exit signal, time, end of data) fills 1 slippage step worse."""
+        super().close(pos, exit_ns, price - pos.order.direction * self.slippage, reason, res)
 
 
 class E4Strategy:
@@ -83,14 +91,15 @@ class E4Strategy:
         return np.sign(f) != pos.order.direction or abs(f) < self.tc["exit_threshold"]
 
 
-def run_market(mk, cfg, events, spread_mult=1.0, commission_mult=1.0):
+def run_market(mk, cfg, events, spread_mult=1.0, commission_mult=1.0, slippage_ticks=0):
     """Run one market. Returns (engine Result, forecast table, trades DataFrame)."""
     table = compute(mk, cfg)
     strat = E4Strategy(mk, table, cfg, events)
     costs = Costs(spread_mult, mk.cfg["commission_pct_per_side"] * commission_mult)
     engine = E4Engine(mk.m1, events, costs, NO_SWAP, risk_usd=cfg["trading"]["risk_usd"],
                       contract=mk.cfg["contract_size"], blackout_min=cfg["trading"]["news_blackout_min"],
-                      weekend_rule=False, on_fill=strat.count_fill)
+                      weekend_rule=False, on_fill=strat.count_fill,
+                      slippage=slippage_ticks * mk.cfg["tick_size"])
     res = engine.run(strat)
     trades = trades_frame(res)
     if len(trades):

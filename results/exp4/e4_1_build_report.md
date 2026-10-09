@@ -15,8 +15,13 @@ US500 M1 downloaded 2022-01-02 → 2026-10-08 (`src/exp4/pull_data.py`); spreads
 Files: `e4_1_leak_test.csv`, `e4_1_rebuild_check.csv`, `handcheck_5_trades_per_market.csv` (UTC + server times, four scores, F, gates, size, stop; no P&L).
 Trial ledger: `results/trial_ledger.md` → 69 configurations, N = 69.
 
-## For Yash to decide before E4-2
-1. **Ranging days can never trade.** In ranging regime only D is on, so |F| = |D|/4 ≤ 0.25 < 0.30 entry threshold. Signal D therefore never opens a trade; the system is trend-only in practice. Keep as written, or change via the Change Log?
-2. **Ablation "each signal alone":** with F always ÷4, one signal alone also tops out at 0.25 and never trades. Divide by 1 for the ablation runs?
-3. **"Without gates"**: assumed = no regime gate *and* no shock gate. OK?
-4. **+1 tick slippage stress** needs a small engine addition (not in Exp 2 engine). OK to add in E4-2?
+## E4-1b re-verification (Change Log v1.2, 2026-10-08)
+| Check | Gold | US500 |
+|---|---|---|
+| Future-scramble test, 20 cuts | 20 / 20 identical | 20 / 20 identical |
+| Rebuild (v1.2 forecast written separately), main config, max diff | 9e-14 | 1.2e-13 |
+| Rebuild on variants only_A / only_D / no_gates | match | match |
+| Slippage tick (`symbol_info` trade_tick_size) | 0.001 | 0.1 |
+| Hand-check trades on ranging days (efficiency < 0.30) | 2 of 5 | 2 of 5 |
+
+v1.1 open questions 1–4 resolved by Change Log v1.2 (a)–(d).

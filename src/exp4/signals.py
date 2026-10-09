@@ -2,8 +2,8 @@
 
 Plain English: at every closed H1 bar we compute four raw signal values, turn each into a score
 in [-1, +1] by dividing by twice its recent spread (std over the previous 60 trading days), switch
-some scores off depending on whether the market has been trending or ranging, and average the four
-into one forecast F. Everything at bar i uses only bars that have CLOSED by bar i's close.
+some scores off depending on whether the market has been trending or ranging, and average the
+scores still allowed into one forecast F (Change Log v1.2: trending (A+B+C)/3, ranging D). Everything at bar i uses only bars that have CLOSED by bar i's close.
 
   A  quiet-range breakout: how far the close is outside today's early range, in range heights
   B  intraday momentum: return from yesterday's flat time to the end of today's first window hour
@@ -112,6 +112,21 @@ def shock_ratio(h1, n_days, n_total_days):
     return ratio
 
 
+def forecast(out, use, gated):
+    """Change Log v1.2: F = average of the signals in use that the regime gate allows —
+    trending (A+B+C)/3, ranging D; ablation = that one signal / 1; no gates = all four / 4.
+    An allowed signal not yet active today still counts, as 0. Zeroes the disallowed scores in `out`."""
+    total, count = np.zeros(len(out)), np.zeros(len(out))
+    for s in SIGNALS:
+        keep = np.full(len(out), s in use)
+        if gated:
+            keep &= (out.ranging if s == "D" else out.trending).to_numpy()
+        out[f"score_{s}"] = np.where(keep, out[f"score_{s}"], 0.0)
+        total += out[f"score_{s}"].to_numpy()
+        count += keep
+    return np.where(count > 0, total / np.maximum(count, 1), 0.0)
+
+
 def compute(mk, cfg):
     """One row per H1 bar: raw values, scores, gates and the forecast F. Honours the variant keys
     use_signals (ablation) and use_gates (False = no regime gate and no shock gate)."""
@@ -173,15 +188,9 @@ def compute(mk, cfg):
     out["shock_ratio"] = shock_ratio(h1, gc["shock_days"], nd)
     out["shock_ok"] = out.shock_ratio <= gc["shock_mult"]             # NaN -> no entries
 
-    use = set(cfg.get("use_signals", SIGNALS))
     gated = cfg.get("use_gates", True)
-    for s in SIGNALS:
-        keep = np.full(len(out), s in use)
-        if gated:
-            keep &= (out.ranging if s == "D" else out.trending).to_numpy()
-        out[f"score_{s}"] = np.where(keep, out[f"score_{s}"], 0.0)
+    out["F"] = forecast(out, set(cfg.get("use_signals", SIGNALS)), gated)
     if not gated:
         out["shock_ok"] = True
-    out["F"] = sum(out[f"score_{s}"] for s in SIGNALS) / 4             # always / 4 (spec §5)
     out["in_window"] = in_day & (m >= clk.minute(mc["window"]["start"])) & (m < clk.minute(mc["window"]["end"]))
     return out
