@@ -1,6 +1,6 @@
 # Gold Bot Experiment — instructions for Claude Code
 
-- **Active spec: `docs/EXPERIMENT_7_SPEC.md`** (v0.9 DRAFT; only Phase E7-0 pattern count may run until Yash locks v1.0; §refs mean this spec). Read the section you need.
+- **Active spec: `docs/EXPERIMENT_7_SPEC.md`** (v0.10 DRAFT; only Phase E7-0 pattern count may run until Yash locks v1.0; §refs mean this spec). Read the section you need.
 - Exp 6: FAIL (E6-2 gate, 2026-10-08), closed. Exp 4: FAIL (E4-2, 2026-10-08). Exp 5 skipped by Yash.
 - **`docs/LESSONS.md`**: Exp 1–3 conclusions, rules still in force, archive pointers. Code map: `docs/CODE_GUIDE.md`.
 - 2010–2021 is reserved: only via `src/data_access.py`, which refuses it without Yash's dated confirmation.
