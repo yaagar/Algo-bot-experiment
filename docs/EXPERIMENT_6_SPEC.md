@@ -138,3 +138,8 @@ At 5% and 8% target vol on $10k, $25k and $50k Swing accounts, real lot rules:
   (d) §6 commission: project table (metals 0.0007%/side, FX $2.50/lot/side, indices $0, oil 0.001%/side).
   (e) §2 daily-loss reset: exactly 00:00 Europe/Prague (tz-aware), not a fixed server hour.
   (f) §6 swap snapshot: explain the US500 difference vs Exp 3 using each symbol's swap_mode; convert every symbol's swap to $ per 1 lot per night. If the difference is fully explained, lock the E6-0 snapshot; if not, use the more costly value of the two snapshots per side. Locked table recorded in results/exp6/.
+- v1.2 — 2026-10-08 — Decided by Yash before any Exp 6 result; input correction, not result-driven.
+  MT5 bar 'spread' is the minimum within the bar, so it is not used anywhere in Exp 6. All spreads (cost screen §3 and backtest cost model §6) come from FTMO tick data (copy_ticks_range, ask − bid):
+  - per symbol and per broker hour of day, the 75th percentile of tick spreads, using all 2026 ticks available on the FTMO terminal (if 2026 ticks are missing for a symbol, use the most recent 3 months available and record which);
+  - the cost screen uses the 10:00 New York hour; the backtest uses the hour of each fill;
+  - the same table applies to all periods (declared assumption, already stressed ×1.5).
