@@ -4,7 +4,7 @@ Updated 2026-10-08.
 
 **Pending:**
 1. ~~Extend the calendar to 2010–2021 and run Phase 4c~~ — **replaced (2026-10-08):** Experiment 1 is finished. Its Phase 4c is folded into the single future 2010–2021 confirmation run of whatever survives Experiment 2 (`docs/EXPERIMENT_2_SPEC.md` §9). The calendar extension to 2010–2021 (option a) will be needed before that run. `src/run_phase4c.py` stays as a draft, never run.
-2. **Active: Experiment 2** (`docs/EXPERIMENT_2_SPEC.md`), starting with phase E2-1.
+2. **Active: Experiment 6** (`docs/EXPERIMENT_6_SPEC.md`), starting with phase E6-0. Exp 2, 3, 4 finished (FAIL); Exp 5 skipped.
 
 No 2010–2021 result has been produced or looked at.
 

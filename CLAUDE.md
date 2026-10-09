@@ -1,6 +1,7 @@
 # Gold Bot Experiment — instructions for Claude Code
 
-- **Active spec: `docs/EXPERIMENT_4_SPEC.md`** (v1.0, locked 2026-10-08; source of truth; §refs mean this spec). Read the section you need. Exp 3 spec is finished (see LESSONS).
+- **Active spec: `docs/EXPERIMENT_6_SPEC.md`** (v1.0, locked 2026-10-08; source of truth; §refs mean this spec). Read the section you need.
+- Exp 4: FAIL (E4-2, 2026-10-08). Exp 5 skipped by Yash.
 - **`docs/LESSONS.md`**: Exp 1–3 conclusions, rules still in force, archive pointers. Code map: `docs/CODE_GUIDE.md`.
 - 2010–2021 is reserved: only via `src/data_access.py`, which refuses it without Yash's dated confirmation.
 
@@ -9,7 +10,8 @@
 - Engine/rules: `config`, `pnl`, `ftmo_rules`, `metrics`, `leak_test`, `controls`, `backtest`, `strategy_asian`
 - `exp2/`: engine, market, strategies (S3 reused by Exp 3), c1, combo, regime, runners
 - `exp3/`: markets, pull_data, fx_splice, data, evaluate, sanity, runners
-- `exp4/`: Experiment 4 (signals, gates, combiner, config-driven runner) — being built
+- `exp4/`: Experiment 4 (signals, gates, combiner, config-driven runner) — finished, FAIL
+- `exp6/`: Experiment 6 (diversified trend, FTMO Swing) — being built
 
 ## Ground rules
 - Spec is locked: never change a rule, number, period or pass/fail criterion. If something seems wrong, stop and ask Yash.

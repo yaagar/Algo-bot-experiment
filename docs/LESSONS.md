@@ -1,11 +1,12 @@
-# Lessons from Experiments 1–3
+# Lessons from Experiments 1–4
 
-## Conclusions (all on 2022+ data; 2010–2021 untouched)
+## Conclusions (all on 2022+ data; 2010–2021 untouched; Exp 5 skipped)
 | Exp | What was tested | Result |
 |---|---|---|
 | 1 | Asian-box breakout on gold (Bot A) + Claude morning/veto filter (Bot B) | Bot A FAIL on the 2026 holdout (all cases). Bot B not better than A in any of 6 cases. Phase 4c folded into the future 2010–2021 run. |
 | 2 | Five intraday gold strategies S1–S5 + combination, in R | No strategy "promising" (best: S1 H1 +0.014R/trade). Combination information-only. |
 | 3 | Donchian 55/20 on daily bars, 8 markets | FAIL on every §6 test: −0.03R/trade, −5.3R total, beat 47% of C1 runs; swap ate the pre-cost edge. |
+| 4 | 4 intraday signals (range breakout, momentum, H4 trend, H1 mean reversion) combined, regime + shock gates, gold + US500 | FAIL 7 of 8 dev criteria: −0.048R/trade over 2,333 trades, negative all 4 years, beat 4.6% of C1, DSR 0.00; every ablation/robustness/stress negative; mean reversion on ranging days lost most. |
 
 Takeaway: small pre-cost edges vanish after spread, commission and swap. Random-direction control (C1) is the honest benchmark.
 
