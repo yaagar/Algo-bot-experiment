@@ -139,3 +139,29 @@ def pull_rates(symbol, timeframe, first, last):
         return pd.DataFrame()
     out = pd.concat(chunks).drop_duplicates("time_server").sort_values("time_server").reset_index(drop=True)
     return out[["time_server", "open", "high", "low", "close", "tick_volume", "spread", "real_volume"]]
+
+
+def tick_spread_histograms(symbol, first, last, point):
+    """Spread (ask - bid, in points) of every tick between `first` and `last`, as one histogram per
+    broker-server hour of day: returns (counts[24, max_points + 1], months seen). Pulled one day at a
+    time (tick history is large); ticks missing a bid or ask are skipped. Read-only."""
+    import numpy as np
+    from datetime import timedelta
+
+    hist = np.zeros((24, 1), dtype=np.int64)
+    months = set()
+    day = first
+    while day < last:
+        nxt = min(day + timedelta(days=1), last)
+        ticks = mt5.copy_ticks_range(symbol, day, nxt, mt5.COPY_TICKS_INFO)
+        if ticks is not None and len(ticks):
+            ok = (ticks["bid"] > 0) & (ticks["ask"] > 0)
+            t = ticks[ok]
+            pts = np.maximum(np.rint((t["ask"] - t["bid"]) / point).astype(np.int64), 0)
+            hour = (t["time_msc"] // 3_600_000) % 24                 # tick times are server wall-clock
+            if pts.max(initial=0) >= hist.shape[1]:
+                hist = np.pad(hist, ((0, 0), (0, int(pts.max()) + 1 - hist.shape[1])))
+            np.add.at(hist, (hour, pts), 1)
+            months.add(day.strftime("%Y-%m"))
+        day = nxt
+    return hist, sorted(months)

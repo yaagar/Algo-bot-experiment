@@ -21,3 +21,8 @@ Missing — US30 (broker) and the 39 other FX pairs (MetaQuotes or other source)
 - Swap: both snapshots swap_mode 5 (annual % of price), so the US500/US100 change is a rate change, not units. Long + short stays −5.00 in both (benchmark moved, 2.5% markup kept) — not explained by swap_mode → costlier per side locked: US500 −5.97 / −2.95, US100 −6.06 / +0.58. All other symbols identical or single snapshot. `e6_0_swaps_locked.csv` ($ per lot per night at latest close).
 - Cost screen `e6_0_cost_screen.csv`: 15 pass — FX 11 / 41, Indices 2 / 3 (US100, US30), Commodities 2 / 3 (USOIL, XAG). Most exclusions are carry_ratio.
 - **Open:** FTMO FX H1 bar spreads are 0 on 92–97% of 2026 bars (MT5 bar spread = minimum in the bar); 9 majors have no non-zero 10:00 NY spread at all → cost_ratio undefined, marked "no 2026 spread at 10:00 NY", not included. 3 of them (GBPUSD, AUDUSD, NZDUSD) pass carry. FX spread method needs Yash's decision.
+
+## E6-0c (Change Log v1.2) — tick-data spreads (no returns)
+- `e6_0_tick_spreads.json`: 75th pct of tick spread (ask − bid) per server hour, all 2026 ticks, 48 symbols (7–121 M ticks each; XAGUSD from Feb 2026, others Jan–Oct). No fallback needed.
+- Cost screen re-run (`e6_0_cost_screen.csv`): 18 pass — FX 14 / 41 (adds GBPUSD, AUDUSD, NZDUSD), Indices 2 / 3, Commodities 2 / 3. Tick spreads are 1.4–8× the old bar values; no cost_ratio above 0.061 (XAG), all exclusions are carry_ratio.
+- Gold, information only: tick p75 vs the Exp 1–4 table is 1.8–2.5× (median 2.2×) per London hour → old costs understated; LESSONS.md updated, nothing re-run.

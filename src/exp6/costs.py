@@ -7,7 +7,8 @@ E6-0 value. $ per 1 lot per night = rate/100/360 x price x (USD per 1.0 price mo
 latest close.
 
 Cost screen (spec §3), per unit of the instrument, all in price units:
-  cost_ratio  = (p75 spread at 10:00 New York in 2026 recorded data + 2 x commission) / median ATR(20) 2022-2025
+  cost_ratio  = (p75 TICK spread at 10:00 New York, 2026 ticks + 2 x commission) / median ATR(20) 2022-2025
+                (Change Log v1.2: MT5 bar spread is the minimum within the bar and is not used)
   carry_ratio = worst-side swap per night x 365 / (std of daily price changes 2022-2025 x sqrt(252))
 Exclude if cost_ratio > 0.10 or carry_ratio > 0.30, or if under 3 years of daily history in 2022-2025.
 Price level for % swaps and % commission: the mean close over 2022-2025 (the period of the volatility).
@@ -73,7 +74,10 @@ def commission_per_unit(cls, cfg, price, tvps, contract):
     return c["pct"] / 100 * price
 
 
-def screen(cfg, symbols, swaps, start, end):
+SERVER_HOUR_10_NY = 17          # server clock = New York + 7 h, all year
+
+
+def screen(cfg, symbols, swaps, start, end, tick_spreads):
     sc = cfg["screen"]
     rows = []
     for s in symbols.rename(columns={"class": "asset_class"}).itertuples():
@@ -88,12 +92,15 @@ def screen(cfg, symbols, swaps, start, end):
         sw = swaps.set_index("symbol").loc[s.symbol]
         worst = max(-sw.swap_long_pct, -sw.swap_short_pct, 0.0)
         carry = worst / 100 / cfg["swap_days_per_year"] * px * 365
-        cost_ratio = (s.spread_p75_price_10ny_2026 + 2 * comm) / med_atr
+        spread = tick_spreads[s.symbol]["p75_price_by_server_hour"][SERVER_HOUR_10_NY]
+        spread = np.nan if spread is None else spread
+        cost_ratio = (spread + 2 * comm) / med_atr
         carry_ratio = carry / vol_ann
         ok_hist = years >= sc["min_history_years"]
         included = ok_hist and cost_ratio <= sc["max_cost_ratio"] and carry_ratio <= sc["max_carry_ratio"]
         rows.append({"symbol": s.symbol, "class": s.asset_class, "history_years": round(years, 2),
-                     "spread_p75_10ny_2026": s.spread_p75_price_10ny_2026, "commission_per_unit_side": comm,
+                     "spread_tick_p75_10ny": spread, "spread_bar_p75_10ny_old": s.spread_p75_price_10ny_2026,
+                     "commission_per_unit_side": comm,
                      "median_atr20": med_atr, "cost_ratio": cost_ratio, "worst_swap_pct": worst,
                      "annual_vol_price": vol_ann, "carry_ratio": carry_ratio, "included": included,
                      "reason": "" if included else ", ".join(

@@ -44,7 +44,8 @@ def run_screen():
     swaps.to_csv(RESULTS / "e6_0_swaps_locked.csv", index=False)
     candidates = syms[(syms["class"] != "FX") | syms.symbol.isin(fx_ok)].reset_index(drop=True)
     start, end = (pd.Timestamp(x, tz="UTC") for x in (cfg["periods"]["gate"]["start"], cfg["periods"]["gate"]["end"]))
-    res = screen(cfg, candidates, swaps, start, end)
+    ticks = json.loads((RESULTS / "e6_0_tick_spreads.json").read_text(encoding="utf-8"))["symbols"]
+    res = screen(cfg, candidates, swaps, start, end, ticks)
     excluded_fx = sorted(set(syms.symbol[syms["class"] == "FX"]) - fx_ok)
     res.to_csv(RESULTS / "e6_0_cost_screen.csv", index=False)
     group = res.assign(group=res["class"].map(cfg["classes"])).groupby("group").included.agg(["sum", "size"])

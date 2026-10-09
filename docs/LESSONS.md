@@ -10,6 +10,8 @@
 
 Takeaway: small pre-cost edges vanish after spread, commission and swap. Random-direction control (C1) is the honest benchmark.
 
+**Spread understated in Exp 1–4 (found 2026-10-08, Exp 6 E6-0):** gold spreads came from MT5 bar `spread` = the MINIMUM within each bar (75th pct of M1 bar minimums per London hour, and real bar minimums after 2025-12-17). 2026 tick data (ask − bid, 75th pct) is 1.8–2.5× higher (median 2.2×; e.g. $0.25 → $0.56–0.61 in London hours); other symbols 1.4–8×. Exp 1–4 costs were too LOW, so their FAIL verdicts stand (true costs only worse). Not re-run. From Exp 6 on, spreads come from tick data only.
+
 ## Rules that still apply
 - **Pre-registered criteria.** Spec, numbers and pass/fail fixed before any result. Changes only through a dated Change Log entry approved by Yash, before running.
 - **No optimisation.** Robustness nudges are reported, never selected.

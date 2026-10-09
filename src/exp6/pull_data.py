@@ -9,6 +9,7 @@ trading-session call, so sessions are described from the hours that have H1 bars
 Never reads anything before 2022-01-01 (checked by src/data_access.py).
 
 Run:  .venv/Scripts/python -m src.exp6.pull_data                 (FTMO terminal: inventory + bars)
+      .venv/Scripts/python -m src.exp6.pull_data --ticks         (FTMO terminal: tick-spread table, v1.2)
       .venv/Scripts/python -m src.exp6.pull_data --metaquotes    (FX prices, MetaQuotes-Demo terminal)
 
 Change Log v1.1 (a): FX PRICES for 2022+ come from MetaQuotes-Demo (the FTMO account's FX history only
@@ -169,6 +170,51 @@ def pull_metaquotes_fx(terminal_path=METAQUOTES_TERMINAL):
     (RESULTS / "e6_0_metaquotes_fx_coverage.json").write_text(json.dumps(rows, indent=2), encoding="utf-8")
 
 
+TICKS_FROM = datetime(2026, 1, 1, tzinfo=timezone.utc)
+FALLBACK_FROM = datetime(2025, 10, 1, tzinfo=timezone.utc)      # most recent 3 months before 2026
+
+
+def p75_from_hist(row):
+    """Smallest spread (points) with at least 75% of ticks at or below it; None if the hour has no ticks."""
+    n = row.sum()
+    return int(np.searchsorted(np.cumsum(row), 0.75 * n)) if n else None
+
+
+def tick_spread_table():
+    """Change Log v1.2: per symbol and broker hour, the 75th percentile of tick spreads (ask - bid),
+    all 2026 ticks on the FTMO terminal (fallback: Oct-Dec 2025 if a symbol has no 2026 ticks)."""
+    check_window(TICKS_FROM, None, "Experiment 6 FTMO tick spreads")              # 2026 data only
+    symbols = [s for s in json.loads((RESULTS / "e6_0_symbols.json").read_text(encoding="utf-8"))["symbols"]
+               if s["class"] != "Crypto"]
+    cfg = load_settings()["mt5"]
+    data_mt5.connect(cfg["terminal_path"], cfg["connect_timeout_ms"])
+    now = datetime.now(timezone.utc)
+    out = {"method": "75th percentile of tick spread (ask - bid) per broker-server hour of day",
+           "pulled_at_utc": now.isoformat(), "symbols": {}}
+    try:
+        for s in symbols:
+            hist, months = data_mt5.tick_spread_histograms(s["symbol"], TICKS_FROM, now, s["point"])
+            window = "2026"
+            if hist.sum() == 0:
+                hist, months = data_mt5.tick_spread_histograms(s["symbol"], FALLBACK_FROM, TICKS_FROM, s["point"])
+                window = "fallback 2025-10..12"
+            p75 = [p75_from_hist(hist[h]) for h in range(24)]
+            out["symbols"][s["symbol"]] = {
+                "class": s["class"], "point": s["point"], "window": window, "months": months,
+                "ticks": int(hist.sum()), "ticks_by_server_hour": [int(x) for x in hist.sum(axis=1)],
+                "p75_points_by_server_hour": p75,
+                "p75_price_by_server_hour": [None if v is None else v * s["point"] for v in p75]}
+            print(f"{s['symbol']:12} {int(hist.sum()):>11,} ticks  {months[0] if months else '-'}..{months[-1] if months else '-'}", flush=True)
+    finally:
+        data_mt5.disconnect()
+    (RESULTS / "e6_0_tick_spreads.json").write_text(json.dumps(out, indent=1), encoding="utf-8")
+
+
 if __name__ == "__main__":
     import sys
-    pull_metaquotes_fx() if "--metaquotes" in sys.argv else main()
+    if "--metaquotes" in sys.argv:
+        pull_metaquotes_fx()
+    elif "--ticks" in sys.argv:
+        tick_spread_table()
+    else:
+        main()
