@@ -151,3 +151,9 @@ Signal B's raw value is fixed for the day once set. ATRs use Wilder smoothing.
   (b) §7 Ablation "each signal alone": F = that signal (divide by 1), regime and shock gates still applied.
   (c) §7 "No gates": regime gate and shock gate both off; F = (A + B + C + D) / 4. News blackout and trading windows stay.
   (d) §8 slippage stress: +1 tick = symbol_info trade_tick_size, applied against the trader on every fill (entry, stop, signal exit, time exit).
+- v1.3 — 2026-10-08 — Clarifications decided before any Exp 4 result exists.
+  (a) R = $50 full-size risk. Trade P&L in R = $P&L / 50 (forecast sizing included). Expectancy = mean over all trades.
+  (b) C1 comparison metric = portfolio total R (gold + US500), 1,000 seeds.
+  (c) Cost stress = 1.5× spread AND 2× commission AND +1 tick on every fill, applied together in one run.
+  (d) Deflated Sharpe: daily portfolio R returns, every trading day in 2022–2025 (no-trade days = 0). N = 69 from the ledger. Cross-trial Sharpe variance V = max(variance of daily Sharpe across the 10 Exp 4 configurations, sampling variance of the main config's Sharpe incl. skew/kurtosis). Report V and which term won.
+  (e) Regime table: trade labelled by its entry day's regime.
