@@ -4,7 +4,7 @@ import pandas as pd
 import pytest
 
 from src.backtest import Events
-from src.exp7.pattern import (choppiness, false_breaks, h1_context, place_stop, place_target, run_start,
+from src.exp7.pattern import (choppiness, false_breaks, h1_context, place_stop, run_start,
                               scan, slope_tstat, swing_points, trend_structure)
 from src.exp7.run import load_config
 
@@ -64,14 +64,6 @@ def test_stop_is_midpoint_or_one_atr_and_jumps_round_level():
     assert place_stop(2008.0, 2010.4, 1.0, -1, CFG) == 2010.5          # short: $0.50 above it
 
 
-def test_target_zone_round_level_and_2r_fallback():
-    assert place_target(2003.0, 1.0, 1, np.array([1995.0]), CFG) == (2005.0, "2R_no_zone")
-    assert place_target(2003.0, 1.0, 1, np.array([2006.0, 2009.0]), CFG) == (2006.0, "zone")
-    assert place_target(2007.0, 1.0, 1, np.array([2013.0]), CFG) == (2009.5, "zone")   # $2010 in between
-    assert place_target(2003.0, 2.0, 1, np.array([2004.0]), CFG) == (2007.0, "2R_zone_under_1R")
-    assert place_target(2003.0, 1.0, -1, np.array([1996.0]), CFG) == (2000.5, "zone")    # short: before $2000
-
-
 def synthetic(seed=0, days=80):
     rng = np.random.default_rng(seed)
     t = pd.date_range("2024-03-04", periods=days * 96, freq="15min", tz="UTC")
@@ -116,4 +108,49 @@ def test_future_scramble_does_not_change_earlier_setups(seed):
     a, b = run_scan(m15, **LOOSE), run_scan(scrambled, **LOOSE)
     keep = lambda d: d[d.fill_time_utc < cut].reset_index(drop=True)
     pd.testing.assert_frame_equal(keep(a), keep(b), check_dtype=False)
-    assert keep(a).qualifies.sum() > 5 and keep(a).target_kind.eq("zone").any()
+    assert keep(a).qualifies.sum() > 5
+
+
+def synthetic_m1(seed=3, days=60):
+    """M1 bars built by splitting each synthetic M15 bar into 15 one-minute steps."""
+    m15 = synthetic(seed, days)
+    rng = np.random.default_rng(seed)
+    rows = []
+    for r in m15.itertuples():
+        path = r.open + np.r_[0, np.cumsum(rng.normal(0, 0.15, 15))]
+        path = path - np.linspace(0, path[-1] - r.close, 16)
+        for k in range(15):
+            o, c = path[k], path[k + 1]
+            rows.append((r.time_utc + pd.Timedelta(minutes=k), o, max(o, c) + 0.05, min(o, c) - 0.05, c))
+    return pd.DataFrame(rows, columns=["time_utc", "open", "high", "low", "close"])
+
+
+def test_engine_trades_match_independent_rebuild_on_synthetic_data(tmp_path):
+    import json
+    from src.exp7 import rebuild
+    from src.exp7.system import Exp7Data, run_system
+    m1 = synthetic_m1()
+    h1 = h1_of(m1)
+    frac = [None] + [0.00012] * 23
+    path = tmp_path / "frac.json"
+    path.write_text(json.dumps({"p75_frac_by_server_hour": frac}))
+    events = pd.Series([pd.Timestamp("2024-03-12 13:30", tz="UTC")])
+    cfg = {**CFG, **LOOSE, "cost_guard_max_spread_frac": 0.10}
+    data = Exp7Data(m1, h1, Events(events), np.array([np.nan] + [0.00012] * 23))
+    res, trades, setups = run_system(data, cfg)
+    rb = rebuild.setups_and_trades(m1, h1, events, path, cfg)
+    assert len(trades) > 10 and res.skipped_in_trade > 0
+    assert trades.entry_ns.tolist() == rb.entry_ns.tolist()
+    assert (np.where(trades.direction == "LONG", 1, -1) == rb.direction).all()
+    assert np.allclose(trades.stop, rb.stop) and np.allclose(trades.target, rb.target)
+
+
+def test_logistic_fit_is_at_the_penalised_optimum():
+    from src.exp7.meta import fit_logistic, predict
+    rng = np.random.default_rng(0)
+    x = rng.normal(size=(300, 2))
+    y = (rng.uniform(size=300) < 1 / (1 + np.exp(-2 * x[:, 0]))).astype(float)
+    w = fit_logistic(x, y, c=1.0)
+    p = predict(w, x)
+    grad = np.column_stack([np.ones(300), x]).T @ (p - y) + np.r_[0, w[1:]]
+    assert np.abs(grad).max() < 1e-6 and w[1] > 1 and abs(w[2]) < 0.5

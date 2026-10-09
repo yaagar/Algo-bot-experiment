@@ -72,3 +72,14 @@ MT5 (logged in to the FTMO trial) must be open for anything marked *MT5*.
 | `engine.py` | Portfolio account: fills at 10:00 NY, swaps, netting, hourly FTMO checks (`ftmo_rules.PortfolioLimits`). |
 | `c1.py` / `rebuild.py` | C1 random-sign forecasts; independent rebuild (no shared engine code). |
 | `run.py` | The one runner: `screen`, `e6_1` (later phases add steps). |
+
+## Experiment 7 (`src/exp7/`, numbers in `config/exp7.yaml`)
+| Module | What it does |
+|---|---|
+| `spreads.py` | MT5 (read-only): 2026 gold tick-p75 spread as a fraction of price, per server hour. |
+| `pattern.py` | Swings, H1 trend + t-stat, M15 box (gap-limited), messy rules, stop; `scan()` = every candidate breakout with block flags. |
+| `system.py` | Setups traded on the Exp 2 engine via `E4Engine`: one position, $50 = 1R, 2R target, 20:00 London exit; `entry_view()` hides outcomes. |
+| `controls.py` | C1 random direction at real times; C2 random trend-direction bars (same $ stop). |
+| `meta.py` | M2 logistic regression (L2, C=1), yearly expanding walk-forward from 2021. |
+| `rebuild.py` | Independent rebuild of setups, one-position rule, entries, stops, targets (no shared code). |
+| `run.py` | The one runner: `e7_1` (later phases add steps). Data via standing grant `exp7`. |

@@ -7,8 +7,8 @@ Plain-English flow for one M15 bar b (decided at its close, using only bars clos
   2. Candidate: b closes above the edge (up) or below it (down). Everything else is ignored.
   3. Checks: H1 trend structure (3 rising swing highs and lows), t-stat of the 48-bar slope,
      box present, false breaks inside the box, choppiness, box height, cost guard, news, hours.
-  4. If all pass, the setup's entry (next M15 open + spread), stop and target are placed.
-Nothing after the fill is computed here: no exits, no P&L.
+  4. If all pass, the setup's entry (next M15 open + spread), stop and 2R target are planned.
+Nothing after the fill is computed here: no exits, no P&L (src/exp7/system.py trades the setups).
 """
 from dataclasses import dataclass
 
@@ -154,15 +154,6 @@ def false_breaks(high, low, close, s, e, min_bars):
     return count
 
 
-def round_levels_between(a, b, step):
-    """Round levels strictly between a and b, nearest to a first."""
-    lo, hi = min(a, b), max(a, b)
-    first = np.floor(lo / step) * step + step
-    levels = np.arange(first, hi, step)
-    levels = levels[(levels > lo) & (levels < hi)]
-    return levels if b > a else levels[::-1]
-
-
 def place_stop(entry, mid, atr_m15, direction, cfg):
     """Box midpoint, but at least 1 x ATR(14, M15) from entry; then pushed $0.50 beyond a round
     $10 level if it lands within $0.50 of one."""
@@ -177,27 +168,13 @@ def place_stop(entry, mid, atr_m15, direction, cfg):
 
 # --- Scan ------------------------------------------------------------------------------------
 
-def place_target(entry, stop_dist, direction, prior_mids, cfg):
-    """Nearest earlier box midpoint beyond entry, pulled $0.50 in front of the nearest round $10
-    level in between; 2R if there is none or it is < 1R away. Returns (target, kind)."""
-    beyond = prior_mids[(prior_mids - entry) * direction > 0]
-    fallback = entry + direction * cfg["target_fallback_r"] * stop_dist
-    if len(beyond) == 0:
-        return fallback, "2R_no_zone"
-    zone = beyond[np.argmin(np.abs(beyond - entry))]
-    levels = round_levels_between(entry, zone, cfg["round_level"])
-    target = levels[0] - direction * cfg["round_buffer"] if len(levels) else zone
-    if (target - entry) * direction < cfg["target_min_r"] * stop_dist:
-        return fallback, "2R_zone_under_1R"
-    return target, "zone"
-
-
 def _to_ns(times):
     return pd.Series(times).dt.tz_convert(None).to_numpy().astype("datetime64[ns]").astype(np.int64)
 
 
 def scan(m15, ctx, events, spread_frac_by_server_hour, cfg):
-    """Every candidate breakout with its block flags; qualifying ones also get entry/stop/target.
+    """Every candidate breakout with its block flags, plus the planned entry/stop/2R target and the
+    M2 inputs. `bar` = index of the breakout (decision) bar in m15; the fill is bar + 1.
 
     m15: M15 bars (UTC, open-time labels, bid prices). ctx: H1Context. events: src.backtest.Events.
     spread_frac_by_server_hour: 24 tick-p75 spreads as fractions of price. Returns one row per candidate.
@@ -211,9 +188,7 @@ def scan(m15, ctx, events, spread_frac_by_server_hour, cfg):
     gap_before = np.r_[False, np.diff(open_ns) > M15.value + cfg["box_max_gap_min"] * 60 * 10**9]
     london = m15.time_utc.dt.tz_convert(LONDON)
     london_min = (london.dt.hour * 60 + london.dt.minute).to_numpy()
-    london_day = london.dt.tz_localize(None).dt.normalize().to_numpy().astype("datetime64[D]")
     server_hour = utc_to_server(m15.time_utc).dt.hour.to_numpy()
-    trading_days = np.unique(london_day[np.is_busday(london_day)])
     atr_m15 = wilder_atr(h, lo, c, cfg["atr_bars"])
     chop = choppiness(h, lo, c, cfg["chop_bars"])
     t0, t1 = (int(x[:2]) * 60 + int(x[3:]) for x in cfg["entry_hours_london"])
@@ -221,14 +196,6 @@ def scan(m15, ctx, events, spread_frac_by_server_hour, cfg):
 
     h1_idx = np.searchsorted(ctx.close_ns, close_ns, side="right") - 1      # last H1 bar closed by bar close
     max_range = np.where(h1_idx >= 0, cfg["box_max_range_atr_h1"] * ctx.atr[np.maximum(h1_idx, 0)], np.nan)
-
-    # Earlier boxes for targets: the longest qualifying run ending at e, kept when bar e+1 did not extend it.
-    rs = np.array([run_start(h, lo, e, max_range[e], gap_before) if max_range[e] == max_range[e] else e + 1 for e in range(n)])
-    is_box = np.arange(n) - rs + 1 >= nb
-    is_box[:-1] &= rs[1:] != rs[:-1]
-    box_end = np.flatnonzero(is_box)
-    box_mid = np.array([(h[rs[e]:e + 1].max() + lo[rs[e]:e + 1].min()) / 2 for e in box_end])
-    box_day = london_day[box_end]
 
     rows = []
     for b in range(nb, n - 1):
@@ -253,8 +220,9 @@ def scan(m15, ctx, events, spread_frac_by_server_hour, cfg):
         flags["choppy"] = not chop[b] <= cfg["chop_max"]
         flags["news"] = events.within(open_ns[f], cfg["news_blackout_min"])
         flags["hours"] = not t0 <= london_min[f] < t1
-        row = dict(time_utc=m15.time_utc.iat[b], fill_time_utc=m15.time_utc.iat[f], direction=direction,
-                   spread=spread, entry=entry, box_bars=b - s if has_box else 0)
+        row = dict(bar=b, time_utc=m15.time_utc.iat[b], fill_time_utc=m15.time_utc.iat[f], direction=direction,
+                   spread=spread, entry=entry, box_bars=b - s if has_box else 0, tstat=ctx.tstat[k],
+                   atr_h1=ctx.atr[k], atr_m15=atr_m15[b])
         if has_box:
             mid = (edge_hi + edge_lo) / 2
             flags["false_breaks"] = false_breaks(h, lo, c, s, b - 1, nb) > cfg["max_false_breaks"]
@@ -262,16 +230,13 @@ def scan(m15, ctx, events, spread_frac_by_server_hour, cfg):
             stop = place_stop(entry, mid, atr_m15[b], direction, cfg)
             stop_dist = abs(entry - stop)
             flags["cost_guard"] = not spread <= cfg["cost_guard_max_spread_frac"] * stop_dist
-            row.update(box_high=edge_hi, box_low=edge_lo, stop=stop, stop_dist=stop_dist)
+            row.update(box_high=edge_hi, box_low=edge_lo, box_mid=mid, stop=stop, stop_dist=stop_dist,
+                       target=entry + direction * cfg["target_r"] * stop_dist)
         failed = [r for r in REASONS if flags[r]]
         row.update({f"x_{r}": v for r, v in flags.items()}, first_block=failed[0] if failed else "",
                    qualifies=not failed)
-        if not failed:
-            pos = np.searchsorted(trading_days, london_day[f], side="right") - 1
-            day0 = trading_days[max(pos - cfg["target_lookback_days"] + 1, 0)]
-            prior = (box_end < s) & (box_day >= day0)
-            row["target"], row["target_kind"] = place_target(entry, stop_dist, direction, box_mid[prior], cfg)
         rows.append(row)
-    columns = ["time_utc", "fill_time_utc", "direction", "spread", "entry", "box_bars", "box_high", "box_low",
-               "stop", "stop_dist", *(f"x_{r}" for r in REASONS), "first_block", "qualifies", "target", "target_kind"]
+    columns = ["bar", "time_utc", "fill_time_utc", "direction", "spread", "entry", "box_bars", "tstat", "atr_h1",
+               "atr_m15", "box_high", "box_low", "box_mid", "stop", "stop_dist", "target",
+               *(f"x_{r}" for r in REASONS), "first_block", "qualifies"]
     return pd.DataFrame(rows, columns=columns)

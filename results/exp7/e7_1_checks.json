@@ -1,0 +1,116 @@
+{
+ "mechanics": {
+  "setups": 423,
+  "trades": 274,
+  "skipped_in_trade": 149,
+  "engine_blocked": {},
+  "long_per_year": {
+   "2019": 18,
+   "2020": 32,
+   "2021": 13,
+   "2022": 21,
+   "2023": 23,
+   "2024": 22,
+   "2025": 43
+  },
+  "short_per_year": {
+   "2019": 12,
+   "2020": 12,
+   "2021": 27,
+   "2022": 24,
+   "2023": 7,
+   "2024": 10,
+   "2025": 10
+  },
+  "entries_per_london_hour": {
+   "7": 18,
+   "8": 21,
+   "9": 19,
+   "10": 17,
+   "11": 20,
+   "12": 19,
+   "13": 37,
+   "14": 18,
+   "15": 8,
+   "16": 18,
+   "17": 34,
+   "18": 32,
+   "19": 13
+  },
+  "median_stop_usd": 5.17
+ },
+ "rebuild": {
+  "engine_trades": 274,
+  "rebuild_trades": 274,
+  "matched_time_and_side": 274,
+  "only_engine": 0,
+  "only_rebuild": 0,
+  "max_stop_diff": 0.0,
+  "max_target_diff": 0.0
+ },
+ "controls_smoke": {
+  "c2_eligible_bars": 11828,
+  "C1": [
+   {
+    "seed": 0,
+    "trades": 274,
+    "longs": 146,
+    "stop_dist_match": true,
+    "same_entry_times": true
+   },
+   {
+    "seed": 1,
+    "trades": 274,
+    "longs": 139,
+    "stop_dist_match": true,
+    "same_entry_times": true
+   },
+   {
+    "seed": 2,
+    "trades": 274,
+    "longs": 144,
+    "stop_dist_match": true,
+    "same_entry_times": true
+   }
+  ],
+  "C2": [
+   {
+    "seed": 0,
+    "trades": 274,
+    "longs": 168,
+    "stop_dist_match": true,
+    "entries_in_hours": true
+   },
+   {
+    "seed": 1,
+    "trades": 274,
+    "longs": 178,
+    "stop_dist_match": true,
+    "entries_in_hours": true
+   },
+   {
+    "seed": 2,
+    "trades": 274,
+    "longs": 169,
+    "stop_dist_match": true,
+    "entries_in_hours": true
+   }
+  ]
+ },
+ "m2_smoke_synthetic": {
+  "synthetic_trades": 600,
+  "first_year_predicted": 2021,
+  "no_prediction_before_2021": true,
+  "probs_in_0_1": true,
+  "corr_prob_vs_planted_input": 0.97,
+  "kept_at_threshold": 269,
+  "predicted": 448
+ },
+ "leak_test": {
+  "cuts": 20,
+  "passed": 20,
+  "cuts_where_later_trades_changed": 20,
+  "first_cut": "2019-05-03 16:00:00+00:00",
+  "last_cut": "2025-09-01 04:00:00+00:00"
+ }
+}
