@@ -143,3 +143,8 @@ At 5% and 8% target vol on $10k, $25k and $50k Swing accounts, real lot rules:
   - per symbol and per broker hour of day, the 75th percentile of tick spreads, using all 2026 ticks available on the FTMO terminal (if 2026 ticks are missing for a symbol, use the most recent 3 months available and record which);
   - the cost screen uses the 10:00 New York hour; the backtest uses the hour of each fill;
   - the same table applies to all periods (declared assumption, already stressed ×1.5).
+- v1.3 — 2026-10-08 — Clarifications approved by Yash before any Exp 6 result (no rule or number changed).
+  (a) Edge runs (gate, exam) use fractional lots on a notional $100,000 account (results are % of capital, linear in capital); lot-step / min-lot rounding and the skip counter apply in the §9 FTMO table ($10k/$25k/$50k). E6-1's mechanics table reports the skips the FTMO sizes would have.
+  (b) v1.1(b) split is linear: unit daily $-vol = (target_vol × capital / √252) × 1/3 × 1/n_class, n_class = tradeable markets in that class that day; classes with none that day are dropped and the rest share equally. "capital" = initial capital (no compounding). The portfolio scaler then rescales to target_vol (cap 2.0×).
+  (c) Margin cap: total required margin (Σ |lots × contract × price| in USD / 30) ≤ 100% of current equity.
+  (d) Accounting MT5-style: netting by average price; reducing a position realises P/L on the reduced lots into balance; commission hits balance at each fill; swap accrues on the open position (in equity) and moves to balance pro rata when lots are closed.
