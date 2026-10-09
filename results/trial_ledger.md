@@ -26,9 +26,10 @@ different cost assumption) — listed for completeness.
 | 12 | Exp 3 E3-2 | The 8-market portfolio | 1 |
 | 13 | Exp 4 (pre-declared, spec §7) | Main; entry 0.20 / 0.40; stop 1.0 / 2.0 × ATR; A only, B only, C only, D only; no gates | 10 |
 | 14 | Exp 6 (pre-declared, spec §7; added 2026-10-08 in E6-1 before any Exp 6 result) | Main; lookback 21 / 63 / 252 only; buffer 0% / 50%; execution 12:00 New York; long-only benchmark | 8 |
-| | | **Total** | **77** |
+| 15 | Exp 7 (pre-declared, spec v1.0 §5; added 2026-10-09 at the lock, before any Exp 7 outcome) | M1 base rules; box min bars 5 / 8; box range 1.25 / 1.75 × ATR(H1); t threshold 1.5 / 2.5; M2 meta-labeling layer | 8 |
+| | | **Total** | **85** |
 
-**N for the Deflated Sharpe Ratio = max(77, 50) = 77** (Exp 4 used N = 69, before row 14 existed).
+**N for the Deflated Sharpe Ratio = max(85, 50) = 85** (Exp 4 used N = 69; Exp 6 used 77). Exp 7 E7-0 counts (v0.9, v0.10) computed no outcomes and are not counted.
 
 Not counted: C1 random-direction controls (Exp 1–4, 6), the Exp 6 cost stress, C2 random-veto control (Exp 1 Phase 5), cost stresses
 (1.5× spread, higher commission, 1.5× swap), the timeframe bootstrap (re-analysis of existing trades, no new rules).

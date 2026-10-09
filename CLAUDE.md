@@ -1,6 +1,6 @@
 # Gold Bot Experiment — instructions for Claude Code
 
-- **Active spec: `docs/EXPERIMENT_7_SPEC.md`** (v0.10 DRAFT; only Phase E7-0 pattern count may run until Yash locks v1.0; §refs mean this spec). Read the section you need.
+- **Active spec: `docs/EXPERIMENT_7_SPEC.md`** (v1.0, locked 2026-10-09; source of truth; §refs mean this spec). Read the section you need.
 - Exp 6: FAIL (E6-2 gate, 2026-10-08), closed. Exp 4: FAIL (E4-2, 2026-10-08). Exp 5 skipped by Yash.
 - **`docs/LESSONS.md`**: Exp 1–3 conclusions, rules still in force, archive pointers. Code map: `docs/CODE_GUIDE.md`.
 - Pre-2022 data is reserved: only via `src/data_access.py`, which refuses it without Yash's dated confirmation. Exception: standing grant `exp7` (XAUUSD + USD calendar from 2019-01-01, Exp 7 dev). 2010–2018 = Exp 7's one-time exam.
@@ -12,7 +12,7 @@
 - `exp3/`: markets, pull_data, fx_splice, data, evaluate, sanity, runners
 - `exp4/`: Experiment 4 (signals, gates, combiner, config-driven runner) — finished, FAIL
 - `exp6/`: Experiment 6 (diversified trend, FTMO Swing) — finished, FAIL
-- `exp7/`: Experiment 7 (trend → consolidation → breakout on gold) — E7-0 count only
+- `exp7/`: Experiment 7 (trend → consolidation → breakout on gold) — E7-1 build
 
 ## Ground rules
 - Spec is locked: never change a rule, number, period or pass/fail criterion. If something seems wrong, stop and ask Yash.
