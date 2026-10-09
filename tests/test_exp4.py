@@ -134,3 +134,14 @@ def test_stop_exit_from_m1_walk_is_slipped_too():
     pos = eng.open_position(order, 0, 100.0, 0.2, res)
     eng.close(pos, *eng.walk(pos, 0, 180 * 10**9), res)
     assert res.trades[-1]["exit_reason"] == "stop" and np.isclose(res.trades[-1]["exit_price"], 99.6 - 0.1)
+
+
+def test_deflated_sharpe_sanity():
+    from src.exp4.evaluate import deflated_sharpe, sharpe
+    rng = np.random.default_rng(1)
+    noise = rng.normal(0, 1, 1000)
+    strong = noise + 0.5
+    weak = deflated_sharpe(noise, [0.0, 0.01, -0.01], 69)
+    good = deflated_sharpe(strong, [0.0, 0.01, -0.01], 69)
+    assert weak["dsr"] < 0.5 < 0.95 < good["dsr"]
+    assert good["V"] == max(good["V_cross"], good["V_sampling"]) and np.isclose(good["sharpe_daily"], sharpe(strong))

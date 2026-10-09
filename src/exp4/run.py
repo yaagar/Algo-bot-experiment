@@ -1,6 +1,7 @@
 """Experiment 4 runner — one config-driven entry point for every phase (spec §10).
 
   .venv/Scripts/python -m src.exp4.run e4_1      build checks: leak test, independent rebuild, hand-check export
+  .venv/Scripts/python -m src.exp4.run e4_2      development run (2022-2025) + 2026 information run
 
 E4-1 (no performance numbers): on the development period (2022-2025) for both markets,
   1. future-scramble leak test, 20 cuts per market: shuffle every bar after a random time T,
@@ -15,7 +16,8 @@ import sys
 import numpy as np
 import pandas as pd
 
-from src.exp4.data import RESULTS, build_market, load_config, load_events, load_frames, period
+from src.exp4.data import RESULTS, build_market, load_config, load_events, load_frames, period, variant_config
+from src.exp4.evaluate import add_r, c1_total_r, daily_returns, deflated_sharpe, sharpe, stats
 from src.exp4.rebuild import compare, rebuild
 from src.exp4.system import run_market
 from src.leak_test import decisions_until, scramble_after
@@ -101,5 +103,96 @@ def e4_1():
     return summary, rb
 
 
+N_TRIALS = 69                    # results/trial_ledger.md: N = max(69, 50)
+C1_SEEDS = range(1000)
+ROBUSTNESS = ("entry_0.20", "entry_0.40", "stop_1.0", "stop_2.0")
+
+
+def run_portfolio(mks, cfg, events, **costs):
+    """Run every market; (trades with R/day/regime, {market: engine Result})."""
+    out, res = [], {}
+    for name, mk in mks.items():
+        r, _, tr = run_market(mk, cfg, events, **costs)
+        res[name] = r
+        if len(tr):
+            out.append(add_r(tr, mk.days))
+    return pd.concat(out, ignore_index=True), res
+
+
+def e4_2():
+    """Spec §7-§8 with Change Log v1.3. Writes everything to results/exp4/; prints nothing about results."""
+    cfg = load_config()
+    events = load_events()
+    start, end = period(cfg, "development")
+    mks = {n: build_market(n, cfg["markets"][n], *load_frames(cfg["markets"][n], start, end)) for n in MARKETS}
+    all_days = sorted(set().union(*(mk.days for mk in mks.values())))
+
+    runs = {}
+    for v in cfg["variants"]:
+        runs[v] = run_portfolio(mks, variant_config(cfg, v), events)
+        print(f"ran {v}", flush=True)
+    main, main_res = runs["main"]
+    stress, _ = run_portfolio(mks, variant_config(cfg, "main"), events, spread_mult=1.5, commission_mult=2.0, slippage_ticks=1)
+
+    c1 = sum(c1_total_r(main_res[n].engine, main[main.market == n], C1_SEEDS) for n in MARKETS)
+    print("C1 done", flush=True)
+    daily = {v: daily_returns(t, all_days) for v, (t, _) in runs.items()}
+    dsr = deflated_sharpe(daily["main"], [sharpe(x) for x in daily.values()], N_TRIALS)
+
+    s_main = stats(main)
+    years = main.groupby(main.day.dt.year).r.agg(["size", "sum"]).reindex([2022, 2023, 2024, 2025], fill_value=0)
+    beats = float((s_main["total_r"] > c1).mean())
+    rob = {v: stats(runs[v][0]) for v in ROBUSTNESS}
+    s_stress = stats(stress)
+    verdict = [
+        ("Trades (portfolio)", s_main["trades"], ">= 200", s_main["trades"] >= 200),
+        ("Expectancy (R/trade)", round(s_main["expectancy"], 4), ">= +0.10", s_main["expectancy"] >= 0.10),
+        ("Years with positive total R", int((years["sum"] > 0).sum()), ">= 3 of 4", (years["sum"] > 0).sum() >= 3),
+        ("Worst year total R", round(float(years["sum"].min()), 2), ">= -10", years["sum"].min() >= -10),
+        ("Beats % of C1 (portfolio total R)", round(100 * beats, 1), ">= 95%", beats >= 0.95),
+        ("Deflated Sharpe probability", round(dsr["dsr"], 4), ">= 0.95", dsr["dsr"] >= 0.95),
+        ("Stress expectancy (1.5x spread, 2x comm, +1 tick)", round(s_stress["expectancy"], 4), "> 0", s_stress["expectancy"] > 0),
+        ("Worst robustness expectancy", round(min(r["expectancy"] for r in rob.values()), 4), "> 0",
+         min(r["expectancy"] for r in rob.values()) > 0),
+    ]
+    passed = all(v[3] for v in verdict)
+
+    # 2026 information only (main config, its own warm-up inside 2026)
+    s26, e26 = period(cfg, "recent_info")
+    mk26 = {n: build_market(n, cfg["markets"][n], *load_frames(cfg["markets"][n], s26, e26)) for n in MARKETS}
+    info26, _ = run_portfolio(mk26, variant_config(cfg, "main"), events)
+
+    RESULTS.mkdir(parents=True, exist_ok=True)
+    main.drop(columns=[c for c in main.columns if c.endswith("_utc")]).to_csv(RESULTS / "e4_2_trades_main.csv", index=False)
+    info26.drop(columns=[c for c in info26.columns if c.endswith("_utc")]).to_csv(RESULTS / "e4_2_trades_2026_info.csv", index=False)
+    pd.DataFrame({"seed": list(C1_SEEDS), "c1_total_r": c1}).to_csv(RESULTS / "e4_2_c1_total_r_by_seed.csv", index=False)
+    pd.DataFrame({"day": all_days, **{v: x for v, x in daily.items()}}).to_csv(RESULTS / "e4_2_daily_r_by_config.csv", index=False)
+
+    f = lambda x: f"{x:+.3f}"
+    lines = ["## Verdict (spec §8 development criteria)", "", "| Criterion | Value | Threshold | Result |", "|---|---:|---|---|"]
+    lines += [f"| {n} | {v} | {th} | {'PASS' if ok else 'FAIL'} |" for n, v, th, ok in verdict]
+    lines += [f"| **Overall** | | all must pass | **{'PASS' if passed else 'FAIL'}** |", "",
+              f"Deflated Sharpe: daily Sharpe {dsr['sharpe_daily']:.4f} over {dsr['days']} days, skew {dsr['skew']:.2f}, "
+              f"kurtosis {dsr['kurtosis']:.2f}; V = {dsr['V']:.3e} (cross-config {dsr['V_cross']:.3e}, sampling "
+              f"{dsr['V_sampling']:.3e}; **{dsr['V_term']} term won**); SR0 = {dsr['SR0']:.4f}; N = {dsr['N']}. "
+              f"C1 median total R {np.median(c1):+.1f}.", "",
+              "## Per year (main, base costs)", "", "| Year | Trades | Total R |", "|---|---:|---:|"]
+    lines += [f"| {y} | {int(r['size'])} | {f(r['sum'])} |" for y, r in years.iterrows()]
+    lines += ["", "## Per regime of the entry day (main, base costs)", "", "| Regime | Trades | Expectancy (R) | Total R |", "|---|---:|---:|---:|"]
+    for g in ("trending", "ranging"):
+        st = stats(main[main.regime == g])
+        lines.append(f"| {g} | {st['trades']} | {f(st['expectancy'])} | {f(st['total_r'])} |")
+    lines += ["", "## Ablation and robustness (information only, base costs)", "", "| Configuration | Trades | Expectancy (R) | Total R |", "|---|---:|---:|---:|"]
+    for v, (t, _) in runs.items():
+        st = stats(t)
+        lines.append(f"| {v} | {st['trades']} | {f(st['expectancy'])} | {f(st['total_r'])} |")
+    lines.append(f"| main, cost stress | {s_stress['trades']} | {f(s_stress['expectancy'])} | {f(s_stress['total_r'])} |")
+    st = stats(info26)
+    lines += ["", f"**2026 information only** ({s26.date()} → latest data, main config): {st['trades']} trades, "
+              f"expectancy {f(st['expectancy'])}R, total {f(st['total_r'])}R."]
+    (RESULTS / "e4_2_tables.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    print("written", RESULTS / "e4_2_tables.md")
+
+
 if __name__ == "__main__":
-    {"e4_1": e4_1}[sys.argv[1]]()
+    {"e4_1": e4_1, "e4_2": e4_2}[sys.argv[1]]()

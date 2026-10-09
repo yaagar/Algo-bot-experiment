@@ -101,6 +101,7 @@ def run_market(mk, cfg, events, spread_mult=1.0, commission_mult=1.0, slippage_t
                       weekend_rule=False, on_fill=strat.count_fill,
                       slippage=slippage_ticks * mk.cfg["tick_size"])
     res = engine.run(strat)
+    res.engine = engine                                 # C1 replays trades on the same engine
     trades = trades_frame(res)
     if len(trades):
         trades.insert(0, "market", mk.name)
