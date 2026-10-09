@@ -24,7 +24,7 @@ def latest_closes(symbols):
 
 def fx_with_full_coverage(cfg):
     """Change Log v1.1 (a): MetaQuotes FX pairs covering all of 2022-2025 with no hole > 5 days."""
-    cov = pd.read_csv(RESULTS / "e6_0_metaquotes_fx_coverage.csv")
+    cov = pd.DataFrame(json.loads((RESULTS / "e6_0_metaquotes_fx_coverage.json").read_text(encoding="utf-8")))
     max_gap = cfg["screen"]["fx_full_coverage_max_gap_days"] * 24
     ok = (cov.offered.fillna(False).astype(bool) & (pd.to_datetime(cov.H1_first_utc, utc=True) <= pd.Timestamp("2022-01-04", tz="UTC"))
           & (pd.to_datetime(cov.H1_last_utc, utc=True) >= pd.Timestamp("2025-12-31", tz="UTC"))
@@ -36,7 +36,7 @@ def fx_with_full_coverage(cfg):
 
 def run_screen():
     cfg = load_config()
-    syms = pd.read_csv(RESULTS / "e6_0_symbols.csv")
+    syms = pd.DataFrame(json.loads((RESULTS / "e6_0_symbols.json").read_text(encoding="utf-8"))["symbols"])
     syms = syms[syms["class"] != "Crypto"].reset_index(drop=True)
     fx_ok = fx_with_full_coverage(cfg)
     swaps = locked_swaps(syms, json.loads(EXP3_SPECS.read_text(encoding="utf-8"))["markets"],

@@ -130,8 +130,8 @@ def main():
 def pull_metaquotes_fx(terminal_path=METAQUOTES_TERMINAL):
     """D1 + H1 from 2022-01-01 for every FTMO FX pair MetaQuotes-Demo offers (name without '.sim')."""
     check_window(START, None, "Experiment 6 MetaQuotes-Demo FX download")      # 2022+ only
-    ftmo = pd.read_csv(RESULTS / "e6_0_symbols.csv")
-    pairs = [s.replace(".sim", "") for s in ftmo[ftmo["class"] == "FX"].symbol]
+    ftmo = json.loads((RESULTS / "e6_0_symbols.json").read_text(encoding="utf-8"))["symbols"]
+    pairs = [s["symbol"].replace(".sim", "") for s in ftmo if s["class"] == "FX"]
     account = data_mt5.connect(terminal_path)
     if account.server != "MetaQuotes-Demo":
         data_mt5.disconnect()
@@ -166,6 +166,7 @@ def pull_metaquotes_fx(terminal_path=METAQUOTES_TERMINAL):
     finally:
         data_mt5.disconnect()
     pd.DataFrame(rows).to_csv(RESULTS / "e6_0_metaquotes_fx_coverage.csv", index=False)
+    (RESULTS / "e6_0_metaquotes_fx_coverage.json").write_text(json.dumps(rows, indent=2), encoding="utf-8")
 
 
 if __name__ == "__main__":
