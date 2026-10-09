@@ -1,6 +1,6 @@
 # Phase E6-0 — data prep (no returns, no signals)
 
-Account OANDA-Demo-1 (FTMO trial), USD, account leverage 1:100. 49 symbols: 42 FX, 3 indices (US100, US500, US30), 2 metals, USOIL, BTCUSD (crypto, excluded, not pulled).
+Account OANDA-Demo-1 (FTMO trial), USD, account leverage 1:100; symbol margin fields are 0 (no per-symbol leverage published) → 1:30 everywhere per §2. 49 symbols: 42 FX, 3 indices (US100, US500, US30), 2 metals, USOIL, BTCUSD (crypto, excluded, not pulled).
 Files: `e6_0_symbols.csv/json` (contract, lots, tick, swap, margin, spread, coverage per symbol); bars in `data/processed/exp6/` (D1 + H1, 2022+).
 
 | Group | D1/H1 from (UTC) | to | Missing weekdays (D1) | Real spread from |

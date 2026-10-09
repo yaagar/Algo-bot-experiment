@@ -4,7 +4,7 @@ Plain English (spec §3, §10): ask MT5 for every symbol (symbols_get), record i
 swap, margin and current spread, then download daily and hourly bars from 2022-01-01 to now for every
 non-crypto symbol, convert to UTC (server clock = New York + 7 h) and save them. No returns, no signals.
 
-Read-only: order_calc_margin is a margin CALCULATION (no order is sent). MT5's Python package has no
+Read-only (no order or margin calls: tests/test_phase1.py bans them). MT5's Python package has no
 trading-session call, so sessions are described from the hours that have H1 bars in 2026.
 Never reads anything before 2022-01-01 (checked by src/data_access.py).
 
@@ -44,20 +44,7 @@ def asset_class(info):
     return "Other"
 
 
-def margin_info(info):
-    """Margin for 1 lot at the current ask and the implied leverage (notional in account currency / margin)."""
-    tick = mt5.symbol_info_tick(info.name)
-    if tick is None or not tick.ask:
-        return None, None
-    margin = mt5.order_calc_margin(mt5.ORDER_TYPE_BUY, info.name, 1.0, tick.ask)
-    if not margin:
-        return None, None
-    notional = tick.ask * info.trade_tick_value / info.trade_tick_size if info.trade_tick_size else None
-    return margin, (notional / margin if notional else None)
-
-
 def record(info, account_ccy):
-    margin, lev = margin_info(info)
     return {
         "symbol": info.name, "class": asset_class(info), "path": info.path, "description": info.description,
         "currency_base": info.currency_base, "currency_profit": info.currency_profit,
@@ -69,7 +56,6 @@ def record(info, account_ccy):
         "swap_mode": info.swap_mode, "swap_long": info.swap_long, "swap_short": info.swap_short,
         "swap_rollover3days": info.swap_rollover3days,
         "margin_initial_field": info.margin_initial, "margin_maintenance_field": info.margin_maintenance,
-        "margin_per_lot_now": margin, "implied_leverage": lev,
         "spread_points_now": info.spread, "visible_in_market_watch": info.visible,
     }
 
