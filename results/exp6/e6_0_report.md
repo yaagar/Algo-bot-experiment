@@ -24,5 +24,5 @@ Missing — US30 (broker) and the 39 other FX pairs (MetaQuotes or other source)
 
 ## E6-0c (Change Log v1.2) — tick-data spreads (no returns)
 - `e6_0_tick_spreads.json`: 75th pct of tick spread (ask − bid) per server hour, all 2026 ticks, 48 symbols (7–121 M ticks each; XAGUSD from Feb 2026, others Jan–Oct). No fallback needed.
-- Cost screen re-run (`e6_0_cost_screen.csv`): 18 pass — FX 14 / 41 (adds GBPUSD, AUDUSD, NZDUSD), Indices 2 / 3, Commodities 2 / 3. Tick spreads are 1.4–8× the old bar values; no cost_ratio above 0.061 (XAG), all exclusions are carry_ratio.
+- Cost screen re-run (`e6_0_cost_screen.csv`): 18 pass — FX 14 / 41 (adds GBPUSD, AUDUSD, NZDUSD), Indices 2 / 3, Commodities 2 / 3. Tick spreads are 1.3–11× (median 3.4×) the old bar values at 10:00 NY; no cost_ratio above 0.061 (XAG), all exclusions are carry_ratio.
 - Gold, information only: tick p75 vs the Exp 1–4 table is 1.8–2.5× (median 2.2×) per London hour → old costs understated; LESSONS.md updated, nothing re-run.
