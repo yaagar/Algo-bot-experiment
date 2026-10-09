@@ -166,3 +166,100 @@ def test_e7_2_scoring_runs_end_to_end_on_synthetic_data():
     out, t = evaluate(data, cfg, n_trials=85, seeds=3)
     assert out["m1"]["trades"] == len(t) > 10 and set(out["criteria"]) and out["m1_verdict"] in ("PASS", "FAIL")
     assert len(out["variants"]) == 6 and 0 <= out["dsr"]["dsr"] <= 1
+
+
+# --- M1-TS exit (spec v1.1 section 6) ---------------------------------------------------------------
+
+class _Bars:
+    """Minimal data stand-in for TrailRule: M15 bars with a fixed spread."""
+
+    def __init__(self, closes, highs=None, spread=0.2):
+        n = len(closes)
+        t = pd.date_range("2024-03-04 08:00", periods=n, freq="15min", tz="UTC")
+        c = np.array(closes, float)
+        self.m15 = pd.DataFrame({"time_utc": t, "open": c, "high": np.array(highs, float) if highs else c + 0.1,
+                                 "low": c - 0.1, "close": c})
+        self._spread = spread
+
+    def spread(self, bars):
+        return np.full(len(bars), self._spread)
+
+
+class _Pos:
+    def __init__(self, direction, entry, stop):
+        from src.exp2.engine import Order
+        self.order = Order(direction=direction, signal_ns=0, stop_rule=None, info={})
+        self.entry_price, self.stop, self.entry_ns = entry, stop, 0
+
+
+def _rule(bars, atr=1.0):
+    from src.exp7.trailing import TrailRule
+    rule = TrailRule(bars, CFG)
+    rule.atr = np.full(len(bars.m15), atr)
+    return rule
+
+
+def test_break_even_triggers_on_close_not_on_intrabar_high():
+    bars = _Bars([101.0, 101.5, 102.0], highs=[101.2, 106.0, 102.1])        # entry 100, R = 2
+    rule, pos = _rule(bars, atr=5.0), _Pos(1, 100.0, 98.0)
+    rule.start(pos)
+    rule.update(pos, 0); rule.update(pos, 1)
+    assert pos.stop == 98.0 and pos.order.info["stop_kind"] == "initial"     # high hit +3R, close only +0.75R
+    rule.update(pos, 2)                                                      # close +1R exactly
+    assert pos.stop == pytest.approx(100.0 * (1 + 2 * 0.0007 / 100)) and pos.order.info["stop_kind"] == "breakeven"
+
+
+def test_trail_only_tightens_and_follows_best_close():
+    bars = _Bars([102.0, 105.0, 103.0, 106.0, 101.0])
+    rule, pos = _rule(bars, atr=1.0), _Pos(1, 100.0, 98.0)
+    rule.start(pos)
+    stops = []
+    for i in range(5):
+        rule.update(pos, i)
+        stops.append(pos.stop)
+    assert stops == pytest.approx([102.0 - 1.5, 105.0 - 1.5, 105.0 - 1.5, 106.0 - 1.5, 106.0 - 1.5])
+    assert pos.order.info["stop_kind"] == "trailing"
+
+
+def test_short_mirror_uses_ask_for_profit_and_trails_down():
+    bars = _Bars([98.1, 97.9, 96.0], spread=0.2)                              # short entry 100, R = 2
+    rule, pos = _rule(bars, atr=1.0), _Pos(-1, 100.0, 102.0)
+    rule.start(pos)
+    rule.update(pos, 0)
+    assert pos.stop == 102.0                                                 # ask 98.3: only +0.85R
+    rule.update(pos, 1)                                                      # ask 98.1: +0.95R... still not 1R
+    assert pos.stop == 102.0
+    rule.update(pos, 2)                                                      # ask 96.2: +1.9R -> BE, trail 97.5
+    assert pos.stop == pytest.approx(96.0 + 1.5) and pos.order.info["stop_kind"] == "trailing"
+
+
+def test_ts_system_on_synthetic_data_exits_only_by_stop_or_20_london_and_keeps_initial_r():
+    from src.exp7.system import Exp7Data
+    from src.exp7.trailing import run_ts_system
+    m1 = synthetic_m1()
+    cfg = {**CFG, **LOOSE, "cost_guard_max_spread_frac": 0.10}
+    data = Exp7Data(m1, h1_of(m1), Events(pd.Series([], dtype="datetime64[ns, UTC]")), np.array([np.nan] + [0.00012] * 23))
+    res, t, setups, rule = run_ts_system(data, cfg)
+    assert len(t) > 10 and t.target.isna().all()
+    assert set(t.exit_type) <= {"initial stop", "break-even", "trailing stop", "time exit"}
+    timed = t[t.exit_type == "time exit"].exit_utc.dt.tz_convert("Europe/London")
+    assert ((timed.dt.hour == 20) & (timed.dt.minute < 5)).all()
+    init = t[t.exit_type == "initial stop"]
+    assert np.allclose(init.stop_distance, (init.entry_price - init.initial_stop).abs())
+    assert (init.net_r < -0.9).all() and (init.net_r > -1.6).all()            # ~ -1R of the initial risk
+    for p in rule.paths.values():                                            # stops never loosen
+        s = np.array([x[1] for x in p])
+        d = 1 if s[-1] >= s[0] else -1
+        assert (d * np.diff(s) >= -1e-12).all()
+
+
+def test_e7_2_ts_scoring_runs_end_to_end_on_synthetic_data():
+    from src.exp7.evaluate import evaluate_ts
+    from src.exp7.system import Exp7Data
+    m1 = synthetic_m1()
+    cfg = {**CFG, **LOOSE, "cost_guard_max_spread_frac": 0.10,
+           "periods": {"development": {"start": "2024-03-01", "end": "2024-06-01"}}}
+    data = Exp7Data(m1, h1_of(m1), Events(pd.Series([], dtype="datetime64[ns, UTC]")), np.array([np.nan] + [0.00012] * 23))
+    out, t = evaluate_ts(data, cfg, n_trials=90, seeds=3)
+    assert out["m1_ts"]["trades"] == len(t) > 10 and len(out["variants"]) == 4 and out["verdict"] in ("PASS", "FAIL")
+    assert abs(sum(out["exit_types"].values()) - 1) < 1e-9

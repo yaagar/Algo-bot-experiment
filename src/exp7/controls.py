@@ -76,3 +76,35 @@ def c2(data, trades, cfg, seed, eligible, spread_mult=1.0):
         fill = int(open_ns[b + 1])
         items.append((_order(int(dirs[j]), int(open_ns[b] + M15.value), fill, float(t.stop_distance), cfg, "C2"), fill))
     return run_orders(data, cfg, items, spread_mult)
+
+
+# --- M1-TS controls (spec v1.1 section 6): same picks, trades managed by the M1-TS exit -------------
+
+def run_orders_ts(data, cfg, items, spread_mult=1.0):
+    """items: (order, fill bar index). Each trade is simulated on its own with the M1-TS stop rule."""
+    from src.exp2.engine import Result
+    from src.exp7.trailing import TrailRule, make_ts_engine, simulate_one
+    engine, rule, res = make_ts_engine(data, cfg, spread_mult), TrailRule(data, cfg, spread_mult), Result()
+    for order, fill_bar in items:
+        order.target_r = None
+        simulate_one(engine, rule, order, fill_bar, res)
+    return trades_frame(res)
+
+
+def c1_ts(data, trades, cfg, seed):
+    rng = np.random.default_rng(seed)
+    dirs = rng.choice([-1, 1], size=len(trades))
+    open_ns = to_ns(data.m15.time_utc)
+    items = [(_order(int(d), int(t.signal_ns), int(t.entry_ns), float(t.stop_distance), cfg, "C1"),
+              int(np.searchsorted(open_ns, t.entry_ns))) for d, t in zip(dirs, trades.itertuples())]
+    return run_orders_ts(data, cfg, items)
+
+
+def c2_ts(data, trades, cfg, seed, eligible):
+    rng = np.random.default_rng(seed)
+    bars, dirs = eligible
+    pick = rng.integers(0, len(bars), size=len(trades))
+    open_ns = to_ns(data.m15.time_utc)
+    items = [(_order(int(dirs[j]), int(open_ns[bars[j]] + M15.value), int(open_ns[bars[j] + 1]), float(t.stop_distance),
+                     cfg, "C2"), int(bars[j] + 1)) for j, t in zip(pick, trades.itertuples())]
+    return run_orders_ts(data, cfg, items)

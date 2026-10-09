@@ -1,0 +1,27 @@
+{
+ "setups": 423,
+ "trades": 268,
+ "skipped_in_trade": 155,
+ "engine_blocked": {},
+ "trades_per_year": {
+  "2019": 28,
+  "2020": 44,
+  "2021": 39,
+  "2022": 43,
+  "2023": 28,
+  "2024": 32,
+  "2025": 54
+ },
+ "stop_rebuild": {
+  "trades_checked": 10,
+  "stop_path_match": 10,
+  "exit_bar_and_type_match": 10
+ },
+ "leak_test": {
+  "cuts": 20,
+  "passed": 20,
+  "cuts_where_later_trades_changed": 20,
+  "first_cut": "2019-05-03 16:00:00+00:00",
+  "last_cut": "2025-09-01 04:00:00+00:00"
+ }
+}

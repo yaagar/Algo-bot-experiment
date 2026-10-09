@@ -80,6 +80,7 @@ MT5 (logged in to the FTMO trial) must be open for anything marked *MT5*.
 | `pattern.py` | Swings, H1 trend + t-stat, M15 box (gap-limited), messy rules, stop; `scan()` = every candidate breakout with block flags. |
 | `system.py` | Setups traded on the Exp 2 engine via `E4Engine`: one position, $50 = 1R, 2R target, 20:00 London exit; `entry_view()` hides outcomes. |
 | `controls.py` | C1 random direction at real times; C2 random trend-direction bars (same $ stop). |
+| `trailing.py` | M1-TS exit (spec v1.1 §6): break-even at +1R on an M15 close, then ATR trail; TS engine keeps R of the initial risk. |
 | `meta.py` | M2 logistic regression (L2, C=1), yearly expanding walk-forward from 2021. |
 | `rebuild.py` | Independent rebuild of setups, one-position rule, entries, stops, targets (no shared code). |
-| `run.py` | The one runner: `e7_1` (later phases add steps). Data via standing grant `exp7`. |
+| `run.py` | The one runner: `e7_1`, `e7_2`, `e7_1_ts`, `e7_2_ts`; scoring in `evaluate.py`. Data via standing grant `exp7`. |

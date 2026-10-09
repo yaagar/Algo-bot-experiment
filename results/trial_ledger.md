@@ -30,7 +30,7 @@ different cost assumption) — listed for completeness.
 | 16 | Exp 7 v1.1 (exit variant requested after E7-2; added 2026-10-09 before any M1-TS code or result) | M1-TS (break-even + trailing stop); break-even trigger 0.75R / 1.5R; trail 1.0 / 2.0 × ATR(M15) | 5 |
 | | | **Total** | **90** |
 
-**N for the Deflated Sharpe Ratio = max(90, 50) = 90** (Exp 7 E7-2 used N = 85) (Exp 4 used N = 69; Exp 6 used 77; Exp 7 E7-2 used 85). Exp 7 E7-0 counts (v0.9, v0.10) computed no outcomes and are not counted.
+**N for the Deflated Sharpe Ratio = max(90, 50) = 90** (Exp 4 used N = 69; Exp 6 used 77; Exp 7 E7-2 used 85). Exp 7 E7-0 counts (v0.9, v0.10) computed no outcomes and are not counted.
 
 Not counted: C1 random-direction controls (Exp 1–4, 6), the Exp 6 cost stress, C2 random-veto control (Exp 1 Phase 5), cost stresses
 (1.5× spread, higher commission, 1.5× swap), the timeframe bootstrap (re-analysis of existing trades, no new rules).

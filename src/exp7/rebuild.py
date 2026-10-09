@@ -177,3 +177,53 @@ def setups_and_trades(m1, h1, event_times, spread_frac_path, cfg):
         trades.append((T[f], d, stop, target))
         busy_until = flat_again_ns(f, d, entry, stop, target, exit_ns)
     return pd.DataFrame(trades, columns=["entry_ns", "direction", "stop", "target"])
+
+
+def ts_stop_path(m1, entry_ns, direction, entry, initial_stop, spread_frac_path, cfg):
+    """M1-TS stop path of one trade, rebuilt without TrailRule or the engine (spec v1.1 section 6).
+
+    Returns ([(bar close ns, stop after that close)], exit trigger ns, exit kind). Exit kind is one of
+    initial / breakeven / trailing / time. Used only to compare with the engine; no P&L is produced."""
+    frac = [float("nan") if x is None else x
+            for x in json.loads(open(spread_frac_path, encoding="utf-8").read())["p75_frac_by_server_hour"]]
+    b = m15_bars(m1)
+    T = [ns(t) for t in b.time_utc]
+    O, H, L, C = (b[k].tolist() for k in ("open", "high", "low", "close"))
+    atr = wilder_atr_sma_seed(H, L, C, cfg["atr_bars"])
+    spread15 = [frac[server_hour(t.to_pydatetime())] * O[i] for i, t in enumerate(b.time_utc)]
+    m1t = [ns(t) for t in m1.time_utc]
+    lon = pd.Timestamp(entry_ns, tz="UTC").tz_convert("Europe/London")
+    xh, xm = (int(x) for x in cfg["time_exit_london"].split(":"))
+    exit_ns = ns(pd.Timestamp(lon.year, lon.month, lon.day, xh, xm).tz_localize("Europe/London"))
+    d, r0 = direction, abs(entry - initial_stop)
+    stop, kind, best = initial_stop, "initial", None
+    path = [(entry_ns, stop)]
+    i = bisect.bisect_left(T, entry_ns)
+    while i < len(T):
+        end = T[i + 1] if i + 1 < len(T) else T[i] + MIN15
+        k = bisect.bisect_left(m1t, T[i])
+        while k < len(m1t) and m1t[k] < end:            # M1 bars of this M15 bar, before the time exit
+            if m1t[k] >= exit_ns:
+                return path, exit_ns, "time"
+            row = m1.iloc[k]
+            s = frac[server_hour(row.time_utc.to_pydatetime())] * row.open
+            if (d > 0 and row.low <= stop) or (d < 0 and row.high + s >= stop):
+                return path, m1t[k], kind
+            k += 1
+        if T[i] <= exit_ns < end:
+            return path, exit_ns, "time"
+        best = C[i] if best is None else (max(best, C[i]) if d > 0 else min(best, C[i]))
+        if kind == "initial":
+            px = C[i] if d > 0 else C[i] + spread15[i]
+            if d * (px - entry) >= cfg["ts"]["be_trigger_r"] * r0:
+                be = entry * (1 + d * 2 * cfg["commission_pct_per_side"] / 100)
+                if d * (be - stop) > 0:
+                    stop = be
+                kind = "breakeven"
+        if kind != "initial":
+            trail = best - d * cfg["ts"]["trail_atr"] * atr[i]
+            if d * (trail - stop) > 0:
+                stop, kind = trail, "trailing"
+        path.append((T[i] + MIN15, stop))
+        i += 1
+    return path, None, "end of data"

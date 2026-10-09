@@ -1,5 +1,5 @@
 # Experiment 7 numbers (docs/EXPERIMENT_7_SPEC.md v0.10 DRAFT). Copied from the spec; never tuned.
-spec_version: "1.0"
+spec_version: "1.1"
 symbol: XAUUSD.sim
 m1_file: XAUUSD.sim_M1.parquet          # data/processed/ (M15 is built from M1)
 h1_file: XAUUSD.sim_H1.parquet          # broker H1 bars
@@ -36,7 +36,7 @@ news_blackout_min: 5
 time_exit_london: "20:00"
 
 seeds: 1000                   # C1 and C2 seeds each
-ledger_n: 85                  # results/trial_ledger.md N for the Deflated Sharpe (2026-10-09)
+ledger_n: 90                  # results/trial_ledger.md N for the Deflated Sharpe (E7-2 used 85; 90 from v1.1)
 m2:                           # meta-labeling layer (spec §5), no tuning
   l2_c: 1.0
   threshold: 0.40
@@ -49,3 +49,11 @@ variants:                     # robustness variants (reported, never selected)
   box_range_1.75: {box_max_range_atr_h1: 1.75}
   tstat_1.5: {tstat_min: 1.5}
   tstat_2.5: {tstat_min: 2.5}
+ts:                           # exit variant M1-TS (spec v1.1 section 6)
+  be_trigger_r: 1.0           # break-even when an M15 close shows >= +1R
+  trail_atr: 1.5              # trail = best close since entry -/+ 1.5 x ATR(14, M15)
+ts_variants:                  # reported, never selected
+  be_0.75R: {be_trigger_r: 0.75}
+  be_1.5R: {be_trigger_r: 1.5}
+  trail_1.0atr: {trail_atr: 1.0}
+  trail_2.0atr: {trail_atr: 2.0}

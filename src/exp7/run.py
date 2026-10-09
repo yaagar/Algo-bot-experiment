@@ -61,7 +61,7 @@ def scrambled(data, cut, seed):
     return Exp7Data(out[0], out[1], data.events, data.spread_frac)
 
 
-def leak_test(data, cfg, trades, n_cuts=20):
+def leak_test(data, cfg, trades, n_cuts=20, system=run_system):
     """Future-scramble test: for each cut, every trade that closed before the cut must be identical,
     and every trade entered before the cut must have the same entry, side, stop and target.
     Outcome fields are compared in code only; only pass/fail is reported."""
@@ -69,7 +69,7 @@ def leak_test(data, cfg, trades, n_cuts=20):
     cuts = [(t0 + (t1 - t0) * (k + 1) / (n_cuts + 1)).floor("1h") for k in range(n_cuts)]
     passed, changed_after = 0, 0
     for k, cut in enumerate(cuts):
-        other = run_system(scrambled(data, cut, seed=k), cfg)[1]
+        other = system(scrambled(data, cut, seed=k), cfg)[1]
         c = cut.value
         closed = lambda t: t[t.exit_ns < c].reset_index(drop=True)
         entered = lambda t: entry_view(t[t.entry_ns < c]).reset_index(drop=True)
@@ -191,7 +191,48 @@ def run_e7_2(cfg):
     print(json.dumps({"m1": out["m1"], "verdict": out["m1_verdict"]}, default=str))
 
 
-PHASES = {"e7_1": run_e7_1, "e7_2": run_e7_2}
+def ts_rebuild_check(data, cfg, trades, rule, k=10, seed=11):
+    """Independent rebuild of the M1-TS stop path for k trades: every stop after every M15 close,
+    the exit bar and the exit type must match. Only match counts are reported."""
+    kinds = {"initial stop": "initial", "break-even": "breakeven", "trailing stop": "trailing", "time exit": "time"}
+    ok_path = ok_exit = 0
+    for t in trades.sample(k, random_state=seed).itertuples():
+        path, exit_ns, kind = rebuild.ts_stop_path(data.m1_df, int(t.entry_ns), 1 if t.direction == "LONG" else -1,
+                                                   float(t.entry_price), float(t.initial_stop),
+                                                   PROJECT_ROOT / cfg["tick_spread_frac"], cfg)
+        eng = rule.paths[int(t.entry_ns)]
+        ok_path += len(eng) == len(path) and all(a[0] == b[0] and abs(a[1] - b[1]) < 1e-6 for a, b in zip(eng, path))
+        same_time = exit_ns == t.exit_ns if kind != "time" else t.exit_ns >= exit_ns
+        ok_exit += bool(same_time and kinds[t.exit_type] == kind)
+    return {"trades_checked": k, "stop_path_match": int(ok_path), "exit_bar_and_type_match": int(ok_exit)}
+
+
+def run_e7_1_ts(cfg):
+    """Build & verify M1-TS (spec v1.1 section 6). Entry-side facts and pass/fail checks only."""
+    from src.exp7.trailing import run_ts_system
+    data = load(cfg)
+    res, trades, setups, rule = run_ts_system(data, cfg)
+    e = entry_view(trades)
+    year = pd.to_datetime(e.entry_ns, utc=True).dt.tz_convert("Europe/London").dt.year
+    report = {"setups": len(setups), "trades": len(e), "skipped_in_trade": res.skipped_in_trade,
+              "engine_blocked": res.blocked, "trades_per_year": {int(y): int(v) for y, v in year.value_counts().sort_index().items()},
+              "stop_rebuild": ts_rebuild_check(data, cfg, trades, rule),
+              "leak_test": leak_test(data, cfg, trades, system=run_ts_system)}
+    (RESULTS / "e7_1_ts_checks.json").write_text(json.dumps(report, indent=1, default=str))
+    print(json.dumps(report, indent=1, default=str))
+
+
+def run_e7_2_ts(cfg):
+    """E7-2-TS development run, ONCE (spec v1.1 section 6)."""
+    from src.exp7.evaluate import evaluate_ts
+    data = load(cfg)
+    out, trades = evaluate_ts(data, cfg, cfg["ledger_n"])
+    trades.drop(columns=["month"]).to_csv(RESULTS / "e7_2_ts_trades.csv", index=False)
+    (RESULTS / "e7_2_ts_results.json").write_text(json.dumps(out, indent=1, default=str))
+    print(json.dumps({"m1_ts": out["m1_ts"], "verdict": out["verdict"]}, default=str))
+
+
+PHASES = {"e7_1": run_e7_1, "e7_2": run_e7_2, "e7_1_ts": run_e7_1_ts, "e7_2_ts": run_e7_2_ts}
 
 if __name__ == "__main__":
     phase = sys.argv[1] if len(sys.argv) > 1 else ""

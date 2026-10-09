@@ -103,7 +103,14 @@ ENTRY_COLUMNS = ["direction", "signal_ns", "entry_ns", "entry_price", "entry_bid
                  "stop_distance", "lots"]
 
 
+PATH_INFO = ["info_stop_kind", "info_best_close"]          # M1-TS: set while the trade runs (outcome side)
+
+
 def entry_view(trades):
-    """Trades without any exit or outcome field (build discipline, spec §4)."""
-    keep = ENTRY_COLUMNS + [c for c in trades.columns if c.startswith("info_")]
-    return trades[[c for c in keep if c in trades.columns]].copy()
+    """Trades without any exit or outcome field (build discipline, spec §4). For M1-TS the final
+    stop and the stop-path fields are outcomes: the initial stop is shown as `stop` instead."""
+    keep = ENTRY_COLUMNS + [c for c in trades.columns if c.startswith("info_") and c not in PATH_INFO]
+    out = trades[[c for c in keep if c in trades.columns]].copy()
+    if "initial_stop" in trades.columns:
+        out["stop"] = trades.initial_stop
+    return out
