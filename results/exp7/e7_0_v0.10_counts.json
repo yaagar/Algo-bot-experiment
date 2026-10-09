@@ -1,0 +1,62 @@
+{
+ "candidates": 24765,
+ "qualifying": 423,
+ "per_year": {
+  "2019": 43,
+  "2020": 66,
+  "2021": 56,
+  "2022": 69,
+  "2023": 49,
+  "2024": 45,
+  "2025": 95
+ },
+ "idea_source_split": {
+  "2019-2024": 328,
+  "2025": 95
+ },
+ "per_direction": {
+  "long": 281,
+  "short": 142
+ },
+ "per_month": {
+  "median": 4.0,
+  "min": 0,
+  "max": 17,
+  "months_with_zero": 7
+ },
+ "days_with_setup": 225,
+ "first_block": {
+  "no_trend": 22535,
+  "weak_tstat": 483,
+  "no_box": 637,
+  "false_breaks": 75,
+  "choppy": 38,
+  "box_too_tall": 213,
+  "cost_guard": 136,
+  "news": 5,
+  "hours": 220
+ },
+ "fails_rule": {
+  "no_trend": 22535,
+  "weak_tstat": 13962,
+  "no_box": 8281,
+  "false_breaks": 1374,
+  "choppy": 752,
+  "box_too_tall": 5175,
+  "cost_guard": 3738,
+  "news": 149,
+  "hours": 10003
+ },
+ "box_rules_base": 16484,
+ "stop_dist_usd": {
+  "median": 5.174032119999993,
+  "p25": 3.7557500000000346,
+  "p75": 7.549388961999853
+ },
+ "spread_over_stop_median": 0.05256215174672573,
+ "target_kind_pct": {
+  "2R_zone_under_1R": 60.0,
+  "2R_no_zone": 35.9,
+  "zone": 4.0
+ }
+}
