@@ -3,7 +3,7 @@
 - **Active spec: `docs/EXPERIMENT_7_SPEC.md`** (v0.10 DRAFT; only Phase E7-0 pattern count may run until Yash locks v1.0; §refs mean this spec). Read the section you need.
 - Exp 6: FAIL (E6-2 gate, 2026-10-08), closed. Exp 4: FAIL (E4-2, 2026-10-08). Exp 5 skipped by Yash.
 - **`docs/LESSONS.md`**: Exp 1–3 conclusions, rules still in force, archive pointers. Code map: `docs/CODE_GUIDE.md`.
-- 2010–2021 is reserved: only via `src/data_access.py`, which refuses it without Yash's dated confirmation.
+- Pre-2022 data is reserved: only via `src/data_access.py`, which refuses it without Yash's dated confirmation. Exception: standing grant `exp7` (XAUUSD + USD calendar from 2019-01-01, Exp 7 dev). 2010–2018 = Exp 7's one-time exam.
 
 ## Core modules (src/)
 - Data: `data_access` (data lock), `data_mt5` (read-only MT5), `pull_prices`, `process_prices`, `spread_model`, `timeutils`, `verify_server_time`, `calendar_events`

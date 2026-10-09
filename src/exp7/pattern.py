@@ -125,14 +125,14 @@ def h1_context(h1, cfg):
 
 # --- Boxes -----------------------------------------------------------------------------------
 
-def run_start(high, low, end, max_range):
-    """Earliest bar s such that bars s..end have combined high-low <= max_range (end+1 if even
-    bar `end` alone is wider)."""
+def run_start(high, low, end, max_range, gap_before):
+    """Earliest bar s such that bars s..end have combined high-low <= max_range and no gap between
+    them (end+1 if even bar `end` alone is wider). gap_before[i]: a > 30 min gap precedes bar i."""
     hi, lo = high[end], low[end]
     if not hi - lo <= max_range:
         return end + 1
     s = end
-    while s > 0:
+    while s > 0 and not gap_before[s]:
         nh, nl = max(hi, high[s - 1]), min(lo, low[s - 1])
         if nh - nl > max_range:
             break
@@ -196,11 +196,11 @@ def _to_ns(times):
     return pd.Series(times).dt.tz_convert(None).to_numpy().astype("datetime64[ns]").astype(np.int64)
 
 
-def scan(m15, ctx, events, spread_by_server_hour, cfg):
+def scan(m15, ctx, events, spread_frac_by_server_hour, cfg):
     """Every candidate breakout with its block flags; qualifying ones also get entry/stop/target.
 
     m15: M15 bars (UTC, open-time labels, bid prices). ctx: H1Context. events: src.backtest.Events.
-    spread_by_server_hour: 24 tick-p75 spreads ($). Returns one row per candidate.
+    spread_frac_by_server_hour: 24 tick-p75 spreads as fractions of price. Returns one row per candidate.
     """
     from src.timeutils import LONDON, utc_to_server
 
@@ -208,6 +208,7 @@ def scan(m15, ctx, events, spread_by_server_hour, cfg):
     n = len(m15)
     open_ns = _to_ns(m15.time_utc)
     close_ns = open_ns + M15.value
+    gap_before = np.r_[False, np.diff(open_ns) > M15.value + cfg["box_max_gap_min"] * 60 * 10**9]
     london = m15.time_utc.dt.tz_convert(LONDON)
     london_min = (london.dt.hour * 60 + london.dt.minute).to_numpy()
     london_day = london.dt.tz_localize(None).dt.normalize().to_numpy().astype("datetime64[D]")
@@ -222,7 +223,7 @@ def scan(m15, ctx, events, spread_by_server_hour, cfg):
     max_range = np.where(h1_idx >= 0, cfg["box_max_range_atr_h1"] * ctx.atr[np.maximum(h1_idx, 0)], np.nan)
 
     # Earlier boxes for targets: the longest qualifying run ending at e, kept when bar e+1 did not extend it.
-    rs = np.array([run_start(h, lo, e, max_range[e]) if max_range[e] == max_range[e] else e + 1 for e in range(n)])
+    rs = np.array([run_start(h, lo, e, max_range[e], gap_before) if max_range[e] == max_range[e] else e + 1 for e in range(n)])
     is_box = np.arange(n) - rs + 1 >= nb
     is_box[:-1] &= rs[1:] != rs[:-1]
     box_end = np.flatnonzero(is_box)
@@ -234,7 +235,7 @@ def scan(m15, ctx, events, spread_by_server_hour, cfg):
         k = h1_idx[b]
         if k < 0 or not max_range[b] == max_range[b] or not ctx.tstat[k] == ctx.tstat[k]:
             continue                                              # H1 warm-up
-        s = run_start(h, lo, b - 1, max_range[b])
+        s = run_start(h, lo, b - 1, max_range[b], gap_before)
         has_box = b - s >= nb
         first = s if has_box else b - nb
         edge_hi, edge_lo = h[first:b].max(), lo[first:b].min()
@@ -243,7 +244,7 @@ def scan(m15, ctx, events, spread_by_server_hour, cfg):
             continue
 
         f = b + 1                                                 # fill bar
-        spread = spread_by_server_hour[server_hour[f]]
+        spread = spread_frac_by_server_hour[server_hour[f]] * o[f]
         entry = o[f] + (spread if direction > 0 else 0.0)
         flags = dict.fromkeys(REASONS, False)
         flags["no_trend"] = ctx.trend[k] != direction

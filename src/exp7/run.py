@@ -10,9 +10,8 @@ import pandas as pd
 import yaml
 
 from src.backtest import Events
-from src.calendar_events import OUT as CALENDAR_PATH
 from src.config import PROJECT_ROOT
-from src.data_access import PROCESSED, read_prices
+from src.data_access import PROCESSED, read_prices, read_usd_events
 from src.exp7.pattern import REASONS, h1_context, m15_from_m1, scan
 
 CONFIG_PATH = PROJECT_ROOT / "config" / "exp7.yaml"
@@ -25,16 +24,18 @@ def load_config():
 
 
 def load(cfg, period="development"):
-    """(M15 from M1, broker H1) for the period, through the data lock."""
+    """(M15 from M1, broker H1, USD events) for the period, through the data lock (grant exp7)."""
     p = cfg["periods"][period]
     start, end = (pd.Timestamp(p[k], tz="UTC") for k in ("start", "end"))
-    read = lambda tf, f: read_prices(cfg["symbol"], tf, start, end, columns=COLS, path=PROCESSED / f).reset_index(drop=True)
-    return m15_from_m1(read("M1", cfg["m1_file"])), read("H1", cfg["h1_file"])
+    read = lambda tf, f: read_prices(cfg["symbol"], tf, start, end, columns=COLS, path=PROCESSED / f,
+                                     grant=cfg["data_grant"]).reset_index(drop=True)
+    events = Events(read_usd_events(start, end, grant=cfg["data_grant"]))
+    return m15_from_m1(read("M1", cfg["m1_file"])), read("H1", cfg["h1_file"]), events
 
 
-def tick_spreads(cfg):
-    table = json.loads((PROJECT_ROOT / cfg["tick_spreads"]).read_text())["symbols"][cfg["tick_spread_symbol"]]
-    return np.array([np.nan if x is None else x for x in table["p75_price_by_server_hour"]])
+def tick_spread_frac(cfg):
+    table = json.loads((PROJECT_ROOT / cfg["tick_spread_frac"]).read_text())
+    return np.array([np.nan if x is None else x for x in table["p75_frac_by_server_hour"]])
 
 
 def summarise(cands, period):
@@ -49,6 +50,7 @@ def summarise(cands, period):
         "candidates": len(cands),
         "qualifying": len(q),
         "per_year": {int(y): int(v) for y, v in fill.dt.year.value_counts().sort_index().items()},
+        "idea_source_split": {"2019-2024": int((fill.dt.year <= 2024).sum()), "2025": int((fill.dt.year == 2025).sum())},
         "per_direction": {"long": int((q.direction > 0).sum()), "short": int((q.direction < 0).sum())},
         "per_month": {"median": float(per_month.median()), "min": int(per_month.min()), "max": int(per_month.max()),
                       "months_with_zero": int((per_month == 0).sum())},
@@ -64,18 +66,18 @@ def summarise(cands, period):
 
 
 def run_e7_0(cfg):
-    m15, h1 = load(cfg)
-    events = Events(pd.read_parquet(CALENDAR_PATH).time_utc)
-    cands = scan(m15, h1_context(h1, cfg), events, tick_spreads(cfg), cfg)
+    m15, h1, events = load(cfg)
+    cands = scan(m15, h1_context(h1, cfg), events, tick_spread_frac(cfg), cfg)
     s = summarise(cands, cfg["periods"]["development"])
     RESULTS.mkdir(parents=True, exist_ok=True)
-    cands.to_csv(RESULTS / "e7_0_candidates.csv", index=False)          # setups and blocks only, no outcomes
-    (RESULTS / "e7_0_counts.json").write_text(json.dumps(s, indent=1))
+    tag = f"e7_0_v{cfg['spec_version']}"                                  # v0.9 files stay as they were
+    cands.to_csv(RESULTS / f"{tag}_candidates.csv", index=False)         # setups and blocks only, no outcomes
+    (RESULTS / f"{tag}_counts.json").write_text(json.dumps(s, indent=1))
     print(json.dumps(s, indent=1))
 
 
 if __name__ == "__main__":
     phase = sys.argv[1] if len(sys.argv) > 1 else "e7_0"
     if phase != "e7_0":
-        sys.exit("Only e7_0 may run under spec v0.9 (draft).")
+        sys.exit("Only e7_0 may run under spec v0.10 (draft).")
     run_e7_0(load_config())

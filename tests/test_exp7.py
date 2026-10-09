@@ -44,8 +44,10 @@ def test_choppiness_trending_low_ranging_high():
 def test_run_start_extends_while_combined_range_fits():
     high = np.array([10, 5, 5.2, 5.1, 5.3])
     low = np.array([0, 4.9, 5.0, 4.95, 5.1])
-    assert run_start(high, low, 4, 0.5) == 1
-    assert run_start(high, low, 4, 0.1) == 5         # even the last bar alone is too wide
+    no_gap = np.zeros(5, bool)
+    assert run_start(high, low, 4, 0.5, no_gap) == 1
+    assert run_start(high, low, 4, 0.1, no_gap) == 5          # even the last bar alone is too wide
+    assert run_start(high, low, 4, 0.5, np.array([0, 0, 0, 1, 0], bool)) == 3   # gap before bar 3 ends the run
 
 
 def test_false_break_counts_only_closes_that_came_back():
@@ -95,7 +97,7 @@ LOOSE = {"cost_guard_max_spread_frac": 99, "tstat_min": -1e9, "chop_max": 100, "
 def run_scan(m15, **over):
     cfg = {**CFG, "entry_hours_london": ["00:00", "23:59"], **over}
     events = Events(pd.Series([pd.Timestamp("2024-03-12 13:30", tz="UTC")]))
-    return scan(m15, h1_context(h1_of(m15), cfg), events, np.full(24, 0.3), cfg)
+    return scan(m15, h1_context(h1_of(m15), cfg), events, np.full(24, 0.00015), cfg)
 
 
 def test_some_setups_qualify_on_synthetic_trends():

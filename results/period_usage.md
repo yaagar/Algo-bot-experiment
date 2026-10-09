@@ -17,3 +17,12 @@ Confirmed by audit on 2026-10-08 (code, every results file, run logs, the Claude
 | Timeframe bootstrap | Reads existing result files | Trades 2022-01-03 → 2026-09-30 (Phase 4b + Phase 4 files) | — |
 
 **2010–2021 has never been used for any strategy result.** From 2026-10-08 the loader refuses it without Yash's dated confirmation, and every confirmed use is logged in `results/data_access_log.md`.
+
+## Experiment 7 (gold trend → box → breakout)
+
+**2026-10-09 — Yash's confirmation:** "I confirm use of pre-2022 XAUUSD data on 2026-10-09 for: Experiment 7 development period 2019-01-01 to 2021-12-31. 2010-01-01 to 2018-12-31 stays reserved as Exp 7's one-time final exam." Coded as the standing grant `exp7` in `src/data_access.py` (XAUUSD.sim bars and the USD calendar from 2019-01-01 only; every read logged). 2010-01-01 → 2018-12-31 remains reserved for Exp 7's one-time exam. 2026 is never used for any Exp 7 decision (its ticks only feed the spread model).
+
+| Phase | What ran | Price data used | Other data used |
+|---|---|---|---|
+| E7-0 (spec v0.9) | Pattern count, no outcomes | 2022-01-01 → 2025-12-31 | Calendar 2022–2025; 2026 tick spreads ($) |
+| E7-0 recount (spec v0.10) | Pattern count, no outcomes | **2019-01-01 → 2025-12-31** (grant `exp7`) | Calendar 2019–2025; 2026 gold ticks (spread as fraction of price) |

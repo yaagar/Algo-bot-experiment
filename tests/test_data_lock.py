@@ -93,6 +93,20 @@ def test_post_2022_window_needs_no_confirmation_and_never_returns_reserved_rows(
     assert bars.time_utc.min() >= pd.Timestamp("2022-01-01", tz="UTC") and not log.exists()
 
 
+def test_exp7_grant_allows_gold_from_2019_only(fake):
+    path, log = fake
+    bars = read_prices("XAUUSD.sim", "M1", pd.Timestamp("2019-01-01", tz="UTC"), None, path=path,
+                       log_path=log, grant="exp7")
+    assert len(bars) == 2 and "standing grant 'exp7'" in log.read_text(encoding="utf-8")
+    for symbol, start, grant in [("XAUUSD.sim", "2018-12-31", "exp7"),     # exam years stay locked
+                                 ("US500.sim", "2019-01-01", "exp7"),      # other markets stay locked
+                                 ("XAUUSD.sim", "2019-01-01", None),       # other experiments stay locked
+                                 ("XAUUSD.sim", None, "exp7")]:            # "everything" stays locked
+        with pytest.raises(ReservedDataLocked):
+            read_prices(symbol, "M1", start and pd.Timestamp(start, tz="UTC"), None, path=path,
+                        log_path=log, grant=grant)
+
+
 def test_check_window_accepts_naive_and_aware_starts():
     check_window(pd.Timestamp("2022-01-01"))          # naive = UTC, not reserved
     with pytest.raises(ReservedDataLocked):
@@ -101,14 +115,18 @@ def test_check_window_accepts_naive_and_aware_starts():
 
 # --- no reserved-period dates in results ---------------------------------------------------
 
+FIRST_YEAR_ALLOWED = {"exp7": 2019}         # standing grant: Exp 7 development starts 2019 (exam 2010-2018 stays out)
+
+
 def test_no_results_file_contains_pre_2022_dates():
     bad = []
     for f in RESULTS.rglob("*.csv"):
         if "phase4c" in f.parts:
             continue
+        first = min([FIRST_YEAR_ALLOWED[p] for p in f.parts if p in FIRST_YEAR_ALLOWED], default=2022)
         d = pd.read_csv(f, dtype=str)
         for col in [c for c in d.columns if "date" in c or c.endswith("_utc")]:
             years = d[col].dropna().str.extract(r"^(\d{4})-")[0].dropna().astype(int)
-            if len(years) and years.min() < 2022:
+            if len(years) and years.min() < first:
                 bad.append(f"{f.relative_to(PROJECT_ROOT)}:{col}")
     assert bad == [], f"pre-2022 dates in results: {bad}"

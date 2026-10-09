@@ -7,6 +7,11 @@ whose window starts before 2022-01-01 is refused unless the caller passes:
 so a confirmation only works on the day it was written. Each confirmed use appends a
 dated entry to results/data_access_log.md.
 
+Standing grants (GRANTS) are the one exception: Yash confirmed, on a stated date, a fixed
+pre-2022 window for one experiment and named data only. A caller passes grant="<name>";
+anything outside that window or those data sets still needs the daily confirmation.
+Every granted read is logged too.
+
 Rows outside the requested window are filtered inside the Parquet read, so reserved
 rows never reach memory unless the window was confirmed. tests/test_data_lock.py
 fails if any other module reads price files or pulls MT5 history without this check.
@@ -25,6 +30,14 @@ ACCESS_LOG = PROJECT_ROOT / "results" / "data_access_log.md"
 PROCESSED = PROJECT_ROOT / "data" / "processed"
 RAW = PROJECT_ROOT / "data" / "raw"
 CONFIRM_TEMPLATE = "I confirm one-time use of pre-2022 data on {date} for: {purpose}"
+GRANTS = {
+    "exp7": {
+        "data": ("XAUUSD.sim", "USD calendar"),     # the calendar is needed for the news rule on the same dates
+        "start": pd.Timestamp("2019-01-01", tz="UTC"),
+        "confirmed": "I confirm use of pre-2022 XAUUSD data on 2026-10-09 for: Experiment 7 development period "
+                     "2019-01-01 to 2021-12-31. 2010-01-01 to 2018-12-31 stays reserved as Exp 7's one-time final exam.",
+    },
+}
 
 
 class ReservedDataLocked(PermissionError):
@@ -53,12 +66,18 @@ def _log_access(what, start, end, purpose, log_path):
         f.write(line)
 
 
-def check_window(start, end=None, what="price data", purpose=None, confirm=None, log_path=None):
-    """Refuse a window that starts before 2022-01-01 unless confirmed today. start=None = everything."""
+def check_window(start, end=None, what="price data", purpose=None, confirm=None, log_path=None,
+                 grant=None, data=None):
+    """Refuse a window that starts before 2022-01-01 unless confirmed today (or covered by a standing
+    grant for this data set). start=None = everything."""
     start_ts = LOCK_BEFORE - pd.Timedelta(days=1) if start is None else pd.Timestamp(start)
     if start_ts.tzinfo is None:
         start_ts = start_ts.tz_localize("UTC")
     if start_ts >= LOCK_BEFORE:
+        return
+    g = GRANTS.get(grant)
+    if g and start is not None and data in g["data"] and start_ts >= g["start"]:
+        _log_access(what, start, end or "end", f"standing grant '{grant}': {g['confirmed']}", log_path or ACCESS_LOG)
         return
     expected = CONFIRM_TEMPLATE.format(date=dt.date.today().isoformat(), purpose=purpose)
     if not purpose or confirm != expected:
@@ -69,9 +88,10 @@ def check_window(start, end=None, what="price data", purpose=None, confirm=None,
     _log_access(what, start or "beginning", end or "end", purpose, log_path or ACCESS_LOG)
 
 
-def read_prices(symbol, tf, start, end, columns=None, purpose=None, confirm=None, path=None, log_path=None):
+def read_prices(symbol, tf, start, end, columns=None, purpose=None, confirm=None, path=None, log_path=None,
+                grant=None):
     """Processed (UTC) bars with start <= time_utc < end, filtered inside the read."""
-    check_window(start, end, f"{symbol} {tf} bars", purpose, confirm, log_path)
+    check_window(start, end, f"{symbol} {tf} bars", purpose, confirm, log_path, grant, symbol)
     path = path or PROCESSED / f"{symbol}_{tf}.parquet"
     filters = []
     if start is not None:
@@ -104,3 +124,13 @@ def read_forex_factory(path, start, end=None, purpose=None, confirm=None, log_pa
         day = chunk.DateTime.str[:10]
         keep.append(chunk[(day >= start) & (day < end if end else True)])
     return pd.concat(keep, ignore_index=True)
+
+
+def read_usd_events(start, end, grant=None, log_path=None):
+    """USD event times (UTC) with start <= time < end: the 2022+ calendar, plus the 2010-2021 one
+    when the window reaches before 2022 (same lock, data set "USD calendar")."""
+    start, end = pd.Timestamp(start), pd.Timestamp(end)
+    check_window(start, end, "USD calendar", log_path=log_path, grant=grant, data="USD calendar")
+    files = ["calendar_usd_high.parquet"] + (["calendar_usd_high_2010_2021.parquet"] if start < LOCK_BEFORE else [])
+    times = pd.concat([pd.read_parquet(PROCESSED / f, columns=["time_utc"]).time_utc for f in files])
+    return times[(times >= start) & (times < end)].drop_duplicates().sort_values().reset_index(drop=True)

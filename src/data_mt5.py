@@ -141,10 +141,11 @@ def pull_rates(symbol, timeframe, first, last):
     return out[["time_server", "open", "high", "low", "close", "tick_volume", "spread", "real_volume"]]
 
 
-def tick_spread_histograms(symbol, first, last, point):
+def tick_spread_histograms(symbol, first, last, point, of_price=False):
     """Spread (ask - bid, in points) of every tick between `first` and `last`, as one histogram per
     broker-server hour of day: returns (counts[24, max_points + 1], months seen). Pulled one day at a
-    time (tick history is large); ticks missing a bid or ask are skipped. Read-only."""
+    time (tick history is large); ticks missing a bid or ask are skipped. Read-only.
+    of_price=True: bins are (ask - bid) / bid in units of `point` (e.g. point=1e-6 -> millionths of price)."""
     import numpy as np
     from datetime import timedelta
 
@@ -157,7 +158,8 @@ def tick_spread_histograms(symbol, first, last, point):
         if ticks is not None and len(ticks):
             ok = (ticks["bid"] > 0) & (ticks["ask"] > 0)
             t = ticks[ok]
-            pts = np.maximum(np.rint((t["ask"] - t["bid"]) / point).astype(np.int64), 0)
+            spread = (t["ask"] - t["bid"]) / (t["bid"] if of_price else 1.0)
+            pts = np.maximum(np.rint(spread / point).astype(np.int64), 0)
             hour = (t["time_msc"] // 3_600_000) % 24                 # tick times are server wall-clock
             if pts.max(initial=0) >= hist.shape[1]:
                 hist = np.pad(hist, ((0, 0), (0, int(pts.max()) + 1 - hist.shape[1])))
